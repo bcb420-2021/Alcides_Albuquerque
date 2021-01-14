@@ -1,0 +1,150 @@
+---
+title: "Docker R Notebook task"
+output: html_docker_task
+---
+
+Open the list of packages installed:
+```{r}
+library()
+```
+
+Of those, 10 were loaded:
+```{r}
+search()
+```
+
+Understanding the use of vignette() to view package vignettes
+```{r}
+?vignette
+```
+
+Help with installing a package is accessible here:
+```{r}
+?install.packages
+```
+
+Installing seqinr package:
+```{r}
+install.packages("seqinr",repos="https://cran.rstudio.com/")  
+```
+For seqinr information:
+```{r}
+library(help="seqinr") 
+```
+
+Loading seqinr in order to list its functions:
+```{r}
+library(seqinr) 
+```
+
+Listing its functions (207 in total):
+```{r}
+ls("package:seqinr") 
+```
+Describing the method a in seqinr (converts 3-letter aa code to 1-letter code)
+```{r}
+?seqinr::a
+```
+ 
+Testing for Tyrosine
+```{r}
+seqinr::a("Tyr")
+```
+Checking what the method seqinr::words() does:
+```{r}
+?seqinr::words
+```
+It returns all words with the size of the first argument made from the alphabet defined by the vector on the second argument
+
+The following creates all the 64 words of size 3 that are possible from the alphabet defined by the vector on the second argument:
+```{r}
+seqinr::words(3, c("A", "G", "C", "U"))
+```
+
+This lists the available datasets:
+```{r}
+?data
+```
+
+This shows, for example, that seqinr contains data with light absobtion of a water column at the dataset called waterabs (last entry)
+```{r}
+data(package="seqinr")
+```
+
+Loading aaindex dataset
+```{r}
+data(aaindex, package="seqinr")  
+```
+
+This dataset contains 544 properties (physical, chemical and biological) for the 20 natural amino-acids
+```{r}
+?aaindex 
+```
+
+For example, a type of hydrophobicity index:
+```{r}
+aaindex$FASG890101
+```
+Another example: the average volume of each amino-acid:
+```{r}
+aaindex$PONJ960101 
+```
+
+This will plot hydrophobicity VS volume for each residue
+```{r}
+plot(aaindex$FASG890101$I,
+     aaindex$PONJ960101$I,
+     xlab="hydrophobicity", ylab="volume", type="n")
+text(aaindex$FASG890101$I,
+     aaindex$PONJ960101$I,
+     labels=a(names(aaindex$FASG890101$I)))
+```
+A beautiful plot with the position of some types of amino-acids (e.g. acidic residues) in the MBP1 sequence from yeast, and the amount of each residue.
+```{r}
+seqinr::choosebank("swissprot")
+mySeq <- seqinr::query("mySeq", "N=MBP1_YEAST")
+mbp1 <- seqinr::getSequence(mySeq)
+seqinr::closebank()
+x <- seqinr::AAstat(mbp1[[1]])
+barplot(sort(x$Compo), cex.names = 0.6)
+```
+The same but now done via loading seqinr first, thus no need to reference the source package:
+```{r}
+library(seqinr)
+choosebank("swissprot")
+mySeq <- query("mySeq", "N=MBP1_YEAST")
+mbp1 <- getSequence(mySeq)
+closebank()
+x <- AAstat(mbp1[[1]])
+barplot(sort(x$Compo), cex.names = 0.6)
+```
+This is to avoid overhead at the beggining of a script in case the needed package is already installed:
+```{r}
+if (! requireNamespace("seqinr", quietly=TRUE)) {
+  install.packages("seqinr")
+}
+```
+
+Basic information on seqinr:
+```{r}
+library(help = seqinr)
+```
+
+Here it would show vignettes, if available
+```{r}
+browseVignettes("seqinr")
+```
+
+Showing available datasets for seqinr package
+```{r}
+data(package = "seqinr") 
+```
+
+
+```{r}
+plot(cars)
+```
+
+```{r}
+plot(cars)
+```
