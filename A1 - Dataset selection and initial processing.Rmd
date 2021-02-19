@@ -1,0 +1,72 @@
+---
+title: "A1 - Data set selection and initial Processing"
+output: html_notebook
+---
+
+This assignment was performed using the base docker image available at:
+https://hub.docker.com/repository/docker/risserlin/bcb420-base-image
+
+1.0 Selecting an expression data set
+
+We will use Geometadb to aid us on the search of GEO data sets. We also need the RSQLite package to perform queries. After installing these packages we download the liteSQL metadata file of the GEO contents. 
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+if (!requireNamespace("GEOmetadb", quietly = TRUE))
+  BiocManager::install("GEOmetadb")
+
+if (!requireNamespace("RSQLite", quietly = TRUE))
+  BiocManager::install("RSQLite")
+
+if(!file.exists('GEOmetadb.sqlite')) 
+  GEOmetadb::getSQLiteFile()
+
+library(BiocManager)
+library(GEOmetadb)
+library(RSQLite)
+```
+Connecting to the GEO metadata database:
+
+```{r}
+con <- dbConnect(SQLite(),'GEOmetadb.sqlite')
+```
+
+We will search for datasets in the last 10 years related to neurodegenerative dementia, involving humans and that contains supplementary file(s) possibly descripting counts of RNAseq readings (high-throughput sequencing).
+
+
+```{r}
+sql <- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title,",
+            " gse.submission_date,",
+            " gse.supplementary_file",
+            "FROM",
+            " gse JOIN gse_gpl ON gse_gpl.gse=gse.gse",
+            " JOIN gpl ON gse_gpl.gpl=gpl.gpl",
+            "WHERE",
+            " gse.submission_date > '2011-02-01' AND",
+            " gse.title LIKE '%dementia%' AND",
+            " gpl.organism LIKE '%Homo sapiens%' AND",
+            " gpl.technology LIKE '%high-throughput sequencing%' ",
+            " ORDER BY gse.submission_date DESC",sep=" ")
+
+rs <- dbGetQuery(con,sql)
+dim(rs)
+View(rs)
+```
+
+From the 14 results, GSE163855 (Identification of functional regulatory variants implicates distinct transcriptional networks in dementia) seems promising, but despite the data published in GEO, the study itself has yet to be published.
+
+Next, we assessed the possibility of using GSE90696 (Identification of evolutionary conserved gene networks that mediate neurodegenerative dementia), however the study (published 3 years after the GEO entry) uses mainly mice data bridged with secondary human proteomic and transcriptomic data.
+
+Then, we assessed GSE149611 (Assess the effects of antipsychotic use on gene expression changes in dementia). This study compares the effect of 3 specific antipsychotic (dopamine receptor blocker): amisulpride, risperidone and volinanserin in terms of their RNA expression signature and how they scored against clinical side effects of typical and atypical dopamine blockers, such as cardiovascular disease. However, we found that this study wouldn't be appropriate to our analysis due to the fact that they used one neuroblastoma cell line exposed to the different drugs. That wouldn't fit the multiple-sample analysis we search for. Another issue with this study, in my opinion, is the limited potential clinical relevance (although I am a physician but not a an experienced specialist). 
+
+Then, after reviewing the other entries, we found GSE147218 (Platelet miRNA bio-signature discriminates between dementia with Lewy bodies and Alzheimer’s disease). That study seemed extremely interesting due to the many clinical features that are common in Lewy bodies' dementia (LBD) and both AD and PD. The initial part of the study seemed especially relevant for our purpose, since the authored profiled 7 LBD patients VS 7 control. The subsequent validation part of the study is also very interesting due to the potential clinical application.
+
+
+
+
+
+
+
+
