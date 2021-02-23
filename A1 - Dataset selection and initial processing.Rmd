@@ -1,12 +1,21 @@
 ---
 title: "A1 - Data set selection and initial Processing"
-output: html_notebook
+output:
+  html_document:
+    toc: TRUE
+    df_print: paged
 ---
 
 This assignment was performed using the base docker image available at:
+
 https://hub.docker.com/repository/docker/risserlin/bcb420-base-image
 
-1.0 Selecting an expression data set
+Chosen dataset:
+
+https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125664
+
+
+## 1. Selecting an expression data set
 
 We will use Geometadb to aid us on the search of GEO data sets. We also need the RSQLite package to perform queries. After installing these packages we download the liteSQL metadata file of the GEO contents. 
 
@@ -20,12 +29,24 @@ if (!requireNamespace("GEOmetadb", quietly = TRUE))
 if (!requireNamespace("RSQLite", quietly = TRUE))
   BiocManager::install("RSQLite")
 
+if (!requireNamespace("GEOquery", quietly = TRUE))
+  BiocManager::install("GEOquery")
+
+if (!requireNamespace("knitr", quietly = TRUE))
+  BiocManager::install("knitr")
+
+if (!requireNamespace("edgeR", quietly = TRUE))
+  BiocManager::install("edgeR")
+
 if(!file.exists('GEOmetadb.sqlite')) 
   GEOmetadb::getSQLiteFile()
 
 library(BiocManager)
 library(GEOmetadb)
 library(RSQLite)
+library(GEOquery)
+library(knitr)
+library(edgeR)
 ```
 Connecting to the GEO metadata database:
 
@@ -52,7 +73,6 @@ sql <- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title,",
 
 rs <- dbGetQuery(con,sql)
 dim(rs)
-View(rs)
 ```
 
 From the 14 results, GSE163855 (Identification of functional regulatory variants implicates distinct transcriptional networks in dementia) seems promising, but despite the data published in GEO, the study itself has yet to be published.
@@ -61,12 +81,310 @@ Next, we assessed the possibility of using GSE90696 (Identification of evolution
 
 Then, we assessed GSE149611 (Assess the effects of antipsychotic use on gene expression changes in dementia). This study compares the effect of 3 specific antipsychotic (dopamine receptor blocker): amisulpride, risperidone and volinanserin in terms of their RNA expression signature and how they scored against clinical side effects of typical and atypical dopamine blockers, such as cardiovascular disease. However, we found that this study wouldn't be appropriate to our analysis due to the fact that they used one neuroblastoma cell line exposed to the different drugs. That wouldn't fit the multiple-sample analysis we search for. Another issue with this study, in my opinion, is the limited potential clinical relevance (although I am a physician but not a an experienced specialist). 
 
-Then, after reviewing the other entries, we found GSE147218 (Platelet miRNA bio-signature discriminates between dementia with Lewy bodies and Alzheimer’s disease). That study seemed extremely interesting due to the many clinical features that are common in Lewy bodies' dementia (LBD) and both AD and PD. The initial part of the study seemed especially relevant for our purpose, since the authored profiled 7 LBD patients VS 7 control. The subsequent validation part of the study is also very interesting due to the potential clinical application.
+Then, after reviewing the other entries, we found GSE147218 (Platelet miRNA bio-signature discriminates between dementia with Lewy bodies and Alzheimer’s disease). That study seemed extremely interesting due to the many clinical features that are common in Lewy bodies dementia (LBD) and both AD and PD. The initial part of the study seemed especially relevant for our purpose, since the authored profiled 7 LBD patients VS 7 control. The subsequent validation part of the study is also very interesting due to the potential clinical application.
+
+After receiving feedback from the instructor, we noticed that the RNA data was not provided on the raw data from this study, only miRNA data.
+
+Another study was then acessed for our purpuses: GSE104687 (Aging, Dementia, and TBI Study). This study has plenty of data regarding the patients with an withouth dementia which suffered traumatic brain injuries and controls, in post-mortem analysis. However the raw count data was not provided for some of the samples, which would make analysis harder.
+
+Then we decided to search for Major Depressive disorder or related conditions through the following:
+
+```{r}
+sql <- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title,",
+            " gse.submission_date,",
+            " gse.supplementary_file",
+            "FROM",
+            " gse JOIN gse_gpl ON gse_gpl.gse=gse.gse",
+            " JOIN gpl ON gse_gpl.gpl=gpl.gpl",
+            "WHERE",
+            " gse.submission_date > '2011-02-01' AND",
+            " gse.title LIKE '%depressive%' AND",
+            " gpl.organism LIKE '%Homo sapiens%' AND",
+            " gpl.technology LIKE '%high-throughput sequencing%' ",
+            " ORDER BY gse.submission_date DESC",sep=" ")
+
+rs <- dbGetQuery(con,sql)
+dim(rs)
+```
+
+From the results, GSE144136 (Single-nucleus RNA-seq in the post-mortem brain in major depressive disorder) seemed especially interesting but its technology (snRNAseq) was related to the single-cell RNAseq technology for hard-to-dissect tissues, which wouldn't fit the purpose of our analysis.
+
+Finally, we chose GSE125664 (Serotonin-induced hyperactivity in SSRI-resistant major depressive disorder patient-derived neurons). It is an interesting study that tries to elucidate the mechanism of SSRI-refractive Major Depressive Disorder. It has a sample size of 9, with adequate control and 2 testing groups (MDD with an without SSRI-based treatment resistance). It also provided the raw mRNA counts for analysis.
+
+
+
+## 2. Downloading the data
+
+The data for this study is contained in one supplemental .csv file called "GSE125664_Vadodaria_MDDNeurons_RawCounts":
+
+```{r}
+if(!file.exists('SSRI_exp_file')) {
+    sfiles = getGEOSuppFiles('GSE125664')
+    fnames = rownames(sfiles)
+    # Just one file, but we have a .csv here
+    SSRI_exp = read.csv(fnames[1],header=TRUE, check.names = FALSE)
+    # Naming its gene name column as gname
+    names(SSRI_exp)[1] <- "gname"
+    saveRDS(SSRI_exp, file = "SSRI_exp_file.rds")
+}
+
+if(!exists("SSRI_exp")){
+    SSRI_exp <- readRDS(file = "SSRI_exp_file.rds")
+}
+
+# Capturing its description, inspired on lecture 4
+SSRI_gse <- getGEO("GSE125664",GSEMatrix=FALSE)
+SSRI_gpl <- names(GPLList(SSRI_gse))[1]
+SSRI_gpl_info <- Meta(getGEO(SSRI_gpl))
+```
+
+
+
+## 3. Computing overview statistics and cleaning
+
+
+__Platform title:__ `r SSRI_gpl_info$title`
+
+__Submission date:__ `r SSRI_gpl_info$submission_date`
+
+__Last update date:__ `r SSRI_gpl_info$last_update_date`
+
+__Organisms:__  `r SSRI_gpl_info$organism`
+
+```{r}
+kable(SSRI_exp[1:10,1:10], format = "html")
+```
+
+```{r}
+dim(SSRI_exp)
+```
+
+And we have 22351 genes with measures for 3 controls, 3 non-resistant-to-SSRI MDD patients and 3 resistant-to-SSRI MDD patients.
+
+Counts for each gene
+
+```{r}
+gene_counts <- sort(table(SSRI_exp$gname), decreasing = TRUE)
+```
+
+Here we notice that the infamous automatic conversion to dates has affected the names of 28 genes and we will have to remove them. All of them start with a number.
+
+```{r}
+SSRI_exp_clean <- SSRI_exp[ !(SSRI_exp$gname %in% c("1-Mar", "1-Mar", "2-Mar", "2-Mar", "1-Dec", "1-Sep", "10-Mar", "10-Sep", "11-Mar", "11-Sep", "12-Sep", "14-Sep", "15-Sep", "2-Sep", "3-Mar", "3-Sep", "4-Mar", "4-Sep", "5-Mar", "5-Sep", "6-Mar", "6-Sep", "7-Mar", "7-Sep", "8-Mar", "8-Sep", "9-Mar", "9-Sep")), ]
+```
+
+```{r}
+gene_counts <- sort(table(SSRI_exp_clean$gname), decreasing = TRUE)
+```
+
+```{r}
+dim(SSRI_exp_clean)
+```
+
+
+Which confirms we have cleaned out only the 28 miscoded observations.
+
+
+```{r}
+kable(gene_counts[which(gene_counts>1)[1:2]], format="html")
+```
+No gene appears more than once on the table. Showing us that we have only unique gene counts (mRNA was already mapped to unique genes expressed as HUGO Gene Nomenclature Committee symbols).
+
+
+Lets calculate our counts per million reads mapped (cmp), inspired on lecture 4:
+
+```{r}
+cpms = cpm(SSRI_exp_clean[,2:10])
+rownames(cpms) <- SSRI_exp_clean[,1]
+# Our study contains 9 samples
+keep = rowSums(cpms >1) >=9
+SSRI_exp_filtered = SSRI_exp_clean[keep,]
+```
+
+
+We now have kept 12973 gene counts, meaning we had to filter out `r 1-(dim(SSRI_exp_filtered)[1]/dim(SSRI_exp_clean)[1])` of our gene-mapped RNA seq observations:
+```{r}
+dim(SSRI_exp_filtered)
+```
+
+
+## 4. Normalization
+
+We are going to use TMM (Trimmed Mean of M-values) normalization. First lets check the distribution of our data before normalization, as per instructed in lecture 4
+
+```{r}
+data2plot <- log2(cpm(SSRI_exp_filtered[,2:10]))
+boxplot(data2plot, xlab = "Samples", ylab = "log2 CPM",
+las = 2, cex = 0.5, cex.lab = 0.5,
+cex.axis = 0.5, main = "SSRI RNASeq Samples")
+abline(h = median(apply(data2plot, 2, median)),
+col = "green", lwd = 0.6, lty = "dashed")
+```
+
+
+
+Then I proceed to TMM normalization:
+
+```{R}
+SSRI_matrix <- as.matrix(SSRI_exp_filtered[,-1])
+
+rownames(SSRI_matrix) <- SSRI_exp_filtered$gname
+
+# inspired by Yi Fei Huang approach in terms of merging samples into groups
+
+categories <- c("healthy", "healthy", "healthy",
+             "nonremitter", "nonremitter", "nonremitter",
+             "remitter", "remitter", "remitter")
+
+# inspired by lecture 4 slides 51 and 52
+
+d = DGEList(counts=SSRI_matrix, group=categories)
+
+# Calculation of normalization factors
+
+d = calcNormFactors(d)
+
+normalized_counts <- cpm(d)
+
+# Code framework by lecture 4, slide 44
+
+counts_density <- apply(log2(cpm(SSRI_exp_filtered[,2:10])), 2, density)
+
+normalized_counts_density <- apply(log2(normalized_counts), 2, density)
+
+xlim <- 0
+ylim <- 0
+
+#Calculating limits
+for (i in 1:length(normalized_counts_density)) {
+      xlim <- range(c(xlim, normalized_counts_density[[i]]$x)); 
+      ylim <- range(c(ylim, normalized_counts_density[[i]]$y))
+}
+
+cols <- rainbow(length(normalized_counts_density))
+ltys <- rep(1, length(normalized_counts_density))
+
+#First density plot
+plot(normalized_counts_density[[1]], xlim=xlim, ylim=ylim, type="n", ylab="Smoothing density of log2-CPM", main="Normalized", cex.lab = 0.8)
+
+#plot each line
+for (i in 1:length(counts_density)){
+  lines(normalized_counts_density[[i]], col=cols[i], lty=ltys[i])
+}
+
+#create legend
+legend("topright", colnames(data2plot),
+col=cols, lty=ltys, cex=0.75,
+border ="blue", text.col = "green4",
+merge = TRUE, bg = "gray90")
+
+
+# Now doing the same with the original, non-normalized data
+
+#Calculating limits
+for (i in 1:length(counts_density)) {
+      xlim <- range(c(xlim, counts_density[[i]]$x)); 
+      ylim <- range(c(ylim, counts_density[[i]]$y))
+}
+
+cols <- rainbow(length(counts_density))
+ltys <- rep(1, length(counts_density))
+
+plot(counts_density[[1]], xlim=xlim, ylim=ylim, type="n", ylab="Smoothing density of log2-CPM", main="non-normalized", cex.lab = 0.8)
+
+
+#plot each line
+for (i in 1:length(counts_density)){
+  lines(counts_density[[i]], col=cols[i], lty=ltys[i])
+}
+
+#create legend
+legend("topright", colnames(data2plot),  
+col=cols, lty=ltys, cex=0.75, 
+border ="red",  text.col = "green4", 
+merge = TRUE, bg = "gray90")
+    
+```
+
+It is easy to see that for most samples the curve is very similar, however there is a noticiable change towards the mean (a bit higher than 5) for the second control (H_neuron_2) and, interestingly, for 2 of the 3 nonremitter patients.
+
+Now lets check the boxplot for the normalized data: 
+
+```{r}
+data2plot_normalized <- log2(normalized_counts)
+boxplot(data2plot_normalized, xlab = "Samples", ylab = "log2 CPM", 
+        las = 2, cex = 0.5, cex.lab = 0.5,
+        cex.axis = 0.5, main = "SSRI RNASeq Normalized")
+        abline(h = median(apply(data2plot_normalized, 2, median)), 
+               col="orangered", lwd = 0.6, lty = "dashed")
+```
+
+
+
+The difference is not as noticeable as with density plots
+
+Inspecting the data post normalization through multidimensional scaling plot (MDS), differently for the example in class, would not be so useful since we would group samples by being part of the control, non-remitted MDD or remitted MDD (one grouping only with 3 subcategories).
+
+Still, bellow is plotted the biological coeficient of variation:
+
+```{r}
+samples <- data.frame(gname = colnames(SSRI_exp_filtered)[-1],
+                      group = c("H", "H", "H", "NR", "NR","NR", "R", "R", "R"))
+
+model_design <- model.matrix(~samples$group)
+
+rownames(SSRI_matrix) <- SSRI_exp_filtered$gname
+
+d <- DGEList(counts=SSRI_matrix, group=samples$group)
+
+d <- estimateDisp(d, model_design)
+
+# Not useful for this group of samples
+# plotMDS(d, labels=rownames(samples), col = c("darkgreen","blue")[factor(samples$group)])
+
+plotBCV(d,col.tagwise = "black",col.common = "red",)
+
+```
+
+
+
+Which show us a slight decrease in variation with higher average log CPM but also a rebound after an average of 8, possibly due to outliers. 
+
+
+
+```{r}
+plotMeanVar(d, show.raw.vars = TRUE, show.tagwise.vars=TRUE,
+show.ave.raw.vars = TRUE,
+NBline=TRUE,
+show.binned.common.disp.vars = TRUE)
+```
 
 
 
 
+And the mean-variance representation seems to confirm this trend.
 
 
+```{r}
+dbDisconnect(con)
+```
+
+
+
+## 6. Interpretation and documentation
+
+#### 6.1 Control and test conditions
+
+As discussed above, the controls are represented, in this paper, by the forebrain neuron lines developed from Induced pluripotent stem cells (iPSCs) removed through non-CNS biopsy of healthy patients exposed to SSRIs.
+The test group involve the same cells from MDD patients which suffered from SSRI treatment resistance and MDD patients which responded to SSRI treatment.
+
+#### 6.2 Importance
+The dataset represent important data because it tries to elucidate the very challenging and very common clinical context in which patients suffering from Major Depressive Disorder fail or respond only partially to SSRI therapy. We currently have no biomarkers to identify these patients. Moreover, is not known the specific mechanism underpinning SSRI and similar SNRI-induced suicidality.
+
+#### 6.3 Handling expression values
+There were 28 expression values per sample that could not be mapped to HUGO symbols. These were part of a common Excel behaviour to convert gene names into dates on .csv files. The observations with that behaviour where removed.
+
+#### 6.4 Replicates, number of outliers removed and final coverage.
+All the counts with less than 9 counts where removed and that removed 9350 gene observations. There after that, and after the cleaning the data, there were no duplicates and all the symbols where unique symbols that complied with HUGO Gene Nomenclature Committee. After all removals and manipulations, the dataset coverage was 0.59, as calculated at the end of section 3.
 
 
