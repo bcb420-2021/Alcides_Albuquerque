@@ -47,6 +47,12 @@ if (!requireNamespace("knitr", quietly = TRUE))
 if (!requireNamespace("edgeR", quietly = TRUE))
   BiocManager::install("edgeR")
 
+if (!requireNamespace("ComplexHeatmap", quietly = TRUE))
+  BiocManager::install("ComplexHeatmap")
+
+if (!requireNamespace("circlize", quietly = TRUE))
+  BiocManager::install("circlize")
+
 if(!file.exists('GEOmetadb.sqlite')) 
   GEOmetadb::getSQLiteFile()
 
@@ -56,6 +62,8 @@ library(RSQLite)
 library(GEOquery)
 library(knitr)
 library(edgeR)
+library(ComplexHeatmap)
+library(circlize)
 ```
 
 ```{r eval = FALSE, echo = FALSE}
@@ -207,14 +215,14 @@ model_design <- model.matrix(~samples$affected)
 # model on status of remission to SSRI (remitters Vs non-remitters)
 model_design_2 <- model.matrix(~samples$status)
 
-# compound model taking into account both conditions
+# compound model taking into account both conditions will not yield independent coefficients:
 # model_design_compound <- model.matrix(~samples$affected + samples$status)
   
 ```
 
 Now we will fit our normalized data to each of the built models.
 
-### Using Limma
+### 2.1.1 Using Limma
 ```{r}
 # As inspired by lecture 6, using limma, doesn't add result in significantly different
 # restults compared with chosen approach (see following code chunk):
@@ -286,7 +294,7 @@ length(which(output_hits_2$adj.P.Val < 0.05))
   the "type-of-response-to-SSRI model with correction
 
 
-## Simple approach using one model
+### 2.1.2 EdgeR Simple approach using one model
 In this approach we will use the model that differentiates between MDD patients that were
 non-responsive to SSRI (non-remitter or NR) from responsive patients (remitter or R), since
 this is main approach took by the paper's authors in its published version's transcriptome analysis (see [@vadodaria2019serotonin], page 801, specially fig 4.b)
@@ -317,6 +325,248 @@ length(which(qlf_output_hits$table$FDR < 0.05))
 ```
 * 2536 genes passed the test of significance for change in transcription
 * No gene passed the test of significance for change in transcription
+
+### 2.1.3 Using paper's modeling
+
+Since the previous 2 modeling failed to yield significant results post-correction, we decided
+to use the model applied by the source study [@vadodaria2019serotonin], page 801. Thus, we design 2 distinct but symmetrical models that will assess remitters MDD patient's cells VS Healthy control cells and remitters MDD patient's cells VS non-remitters MDD patient's cells separately.
+
+samples <- data.frame(status = c("H", "H", "H", "NR", "NR","NR", "R", "R", "R"),
+                      affected = c("ND", "ND", "ND", "D", "D","D", "D", "D", "D"))
+
+```{r}
+
+# Creating model for non-remitters VS control assessment
+samples_NRxH <- data.frame(status = c("H", "H", "H", "NR", "NR","NR"))
+rownames(samples_NRxH) <- colnames(SSRI_exp)[2:7]
+model_design_NRxH <- model.matrix(~samples_NRxH$status)
+
+# Creating model for non-remitters VS remitters assessment
+samples_NRxR <- data.frame(status = c("NR", "NR","NR", "R", "R", "R"))
+rownames(samples_NRxR) <- colnames(SSRI_exp)[5:10]
+model_design_NRxR <- model.matrix(~samples_NRxR$status)
+```
+
+Now we apply the each model separately to the appropriate data set:
+
+```{r}
+d_NRxH = DGEList(counts=normalized_counts[,1:6], group=samples_NRxH$statusNR)
+d_NRxR = DGEList(counts=normalized_counts[,4:9], group=samples_NRxR$statusNR)
+
+
+# Dispersions
+d_NRxH <- estimateDisp(d_NRxH, model_design_NRxH)
+d_NRxR <- estimateDisp(d_NRxR, model_design_NRxR)
+
+
+# Computing normalization factors
+d_NRxH <- calcNormFactors(d_NRxH)
+d_NRxR <- calcNormFactors(d_NRxR)
+
+
+# fitting models
+fit_NRxH <- glmQLFit(d_NRxH, model_design_NRxH)
+fit_NRxR <- glmQLFit(d_NRxR, model_design_NRxR)
+
+
+# Computing differential expression
+qlf.pos_vs_neg_NRxH <- glmQLFTest(fit_NRxH, coef='samples_NRxH$statusNR')
+qlf.pos_vs_neg_NRxR <- glmQLFTest(fit_NRxR, coef='samples_NRxR$statusR')
+```
+
+
+```{r}
+# Results, now inspired by lecture 7
+qlf_output_hits_RNxH <- topTags(qlf.pos_vs_neg_NRxH, sort.by = "PValue", n = nrow(SSRI_exp))
+qlf_output_hits_RNxR <- topTags(qlf.pos_vs_neg_NRxR, sort.by = "PValue", n = nrow(SSRI_exp))
+
+# Here we check how many mapped genes passed the 0.05 significance threshold with and without correction
+# for the comparison remitter Vs control
+length(which(qlf_output_hits_RNxH$table$PValue < 0.05))
+length(which(qlf_output_hits_RNxH$table$FDR < 0.05))
+
+# Here we check how many mapped genes passed the 0.05 significance threshold with and without correction
+# for the comparison non-remitters Vs remitters
+length(which(qlf_output_hits_RNxR$table$PValue < 0.05))
+length(which(qlf_output_hits_RNxR$table$FDR < 0.05))
+```
+
+Although the results indicate the need for enrichment set analysis (which is one of the purpose of this assignment,
+as follows), this results are now more comparable with the source literature[@vadodaria2019], in which, at least
+for the set of genes presented there, the differential expression between remitters and controls is larger than
+the one between remitters and non-remitters. 
+
+Another thresholding, now with p=0.09 is now performed, despite not being considered as a strong evidence of up or downregulation. We decided to perform this aditional less stringent comparision in order to compare with the original paper's finding of HTR set (specifically HTR2A) are up-regulated in non-remitters compared to remmiters.
+
+```{r}
+length(which(qlf_output_hits_RNxR$table$PValue < 0.09))
+```
+And it increases drastically the amount of hits, compatible with what the paper presented, although we won't proceed further with the 0.09 threshold in order to keep relevance to any eventual finding.
+
+## 2.2 General and highlighted MA plot 
+
+Our top results through the last model were as follows, for the remitters VS control comparison:
+
+```{r}
+kable(topTags(qlf.pos_vs_neg_NRxH), type="html")
+```
+
+And for the non-remitters VS remitters comparision:
+
+```{r}
+kable(topTags(qlf.pos_vs_neg_NRxR), type="html")
+```
+
+
+In order to have a more general view of the differences in expression among non-remitters and controls and among remitters and non-remitters we decided to build an MA plot for each of these assessments. For that, we will use plotMA from the limma package[@limma]. We will also use the <status> argument at the function (see documentation), to include the controls.
+
+Comparing first pair of samples (remmitter Vs non-remmiters and its control)
+
+```{r fig.width= 4 fig.height=4}
+plotMA(log2(SSRI_exp[,c(5,8)]), ylab="M - ratio log expression", main="MA plot R VS NR 1st pair", status = SSRI_exp[,c(2)])
+```
+Second pair:
+```{r fig.width= 4 fig.height=4}
+plotMA(log2(SSRI_exp[,c(6,9)]), ylab="M - ratio log expression", main="MA plot R VS NR 2nd pair", status = SSRI_exp[,c(3)])
+```
+
+Third pair:
+```{r fig.width= 4 fig.height=4}
+plotMA(log2(SSRI_exp[,c(7,10)]), ylab="M - ratio log expression", main="MA plot R VS NR 3rd pair", status = SSRI_exp[,c(3)])
+```
+
+No useful insight is prompt when such large number of gene mapping is available so we decided to highlight only the group of genes related to the paper's biological hypothesis, concerning the following HTR family genes:
+
+
+
+## Heat map
+
+In order to vizualize our mostly deferentially expressed genes we used a heat map as provided by the ComplexHeatmap package[@ComplexHeatmap)], also using circlize package [@circlize]. However the processing time was long for the whole dataset using those tools.
+
+```{r eval = FALSE}
+# As inspired in Lecture 6
+
+# Creating matrix
+heatmap_matrix <- normalized_counts[,2:ncol(normalized_counts)]
+
+rownames(heatmap_matrix) <- rownames(normalized_counts)
+
+colnames(heatmap_matrix) <- colnames(normalized_counts[,2:ncol(normalized_counts)])
+
+heatmap_matrix <- t(scale(t(heatmap_matrix)))
+
+# Setting colours
+if(min(heatmap_matrix) == 0){
+  heatmap_col = colorRamp2(c( 0, max(heatmap_matrix)),
+c( "white", "red"))
+} else {
+heatmap_col = colorRamp2(c(min(heatmap_matrix), 0,
+max(heatmap_matrix)), c("blue", "white", "red"))
+}
+
+# Creating heat map
+current_heatmap <- Heatmap(as.matrix(heatmap_matrix),
+show_row_dend = TRUE,show_column_dend = TRUE,
+col=heatmap_col,show_column_names = TRUE,
+show_row_names = FALSE,show_heatmap_legend = TRUE)
+current_heatmap
+```
+
+So we decided to use the limma package[@limma] tools instead, using a threshold of 0.01 for significance for a cleaner view.
+
+First for non-remitters VS controls:
+
+```{r}
+# As inspired by lecture 6
+
+heatmap_matrix <- normalized_counts[,1:6]
+
+rownames(heatmap_matrix) <- rownames(normalized_counts)
+
+colnames(heatmap_matrix) <- colnames(normalized_counts[,1:6])
+
+heatmap_matrix <- t(scale(t(heatmap_matrix)))
+
+top_hits <- output_hits_2$hgnc_symbol[output_hits_2$P.Value<0.01]
+
+heatmap_matrix_tophits <- t(scale(t(heatmap_matrix[which(rownames(heatmap_matrix)
+                          %in% top_hits),])))
+
+# UNCOMMENT THIS TO HIDE CLUSTERING
+# This is to specifically avoid clustering by condition
+# heatmap_matrix_tophits<- heatmap_matrix_tophits[,
+# c(grep(colnames(heatmap_matrix_tophits),pattern = "1"),
+# grep(colnames(heatmap_matrix_tophits),pattern = "2"),
+# grep(colnames(heatmap_matrix_tophits),pattern = "3"))]
+  
+if(min(heatmap_matrix_tophits) == 0){
+  heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)),
+  c( "white", "red"))
+} else {
+  heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0, 
+                          max(heatmap_matrix_tophits)), 
+                          c("blue", "white", "red"))
+}
+current_heatmap <- Heatmap(as.matrix(heatmap_matrix_tophits),
+cluster_rows = TRUE, show_row_dend = TRUE,
+cluster_columns = FALSE,show_column_dend = FALSE,
+col=heatmap_col,show_column_names = TRUE,
+show_row_names = FALSE,show_heatmap_legend = TRUE)
+
+current_heatmap
+
+```
+Legend: The conditions here (status of non-remmiter or control) are intentionally clusted toguether due to the order of the matrix (cluster argument still set to FALSE) used on the heat map (uncomment unclustering code to see it otherwise). One can notice that the bottom half of the over expressed sets on the non-remmiter band is more active at remitters neurons 2 and 3 but still overexpressed across all test samples.
+
+
+Now for non-remitters VS remitters:
+
+```{r}
+# As inspired by lecture 6
+
+heatmap_matrix <- normalized_counts[,4:9]
+
+rownames(heatmap_matrix) <- rownames(normalized_counts)
+
+colnames(heatmap_matrix) <- colnames(normalized_counts[,4:9])
+
+heatmap_matrix <- t(scale(t(heatmap_matrix)))
+
+top_hits <- output_hits_2$hgnc_symbol[output_hits_2$P.Value<0.01]
+
+heatmap_matrix_tophits <- t(scale(t(heatmap_matrix[which(rownames(heatmap_matrix)
+                          %in% top_hits),])))
+
+# UNCOMMENT THIS TO HIDE CLUSTERING
+# This is to specifically avoid clustering by condition
+# heatmap_matrix_tophits<- heatmap_matrix_tophits[,
+# c(grep(colnames(heatmap_matrix_tophits),pattern = "1"),
+# grep(colnames(heatmap_matrix_tophits),pattern = "2"),
+# grep(colnames(heatmap_matrix_tophits),pattern = "3"))]
+  
+if(min(heatmap_matrix_tophits) == 0){
+  heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)),
+  c( "white", "red"))
+} else {
+  heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0, 
+                          max(heatmap_matrix_tophits)), 
+                          c("blue", "white", "red"))
+}
+current_heatmap <- Heatmap(as.matrix(heatmap_matrix_tophits),
+cluster_rows = TRUE, show_row_dend = TRUE,
+cluster_columns = FALSE,show_column_dend = FALSE,
+col=heatmap_col,show_column_names = TRUE,
+show_row_names = FALSE,show_heatmap_legend = TRUE)
+
+current_heatmap
+
+```
+
+The conditions here (status of remitter or non-remitter) are intentionally clusted toguether due to the order of the matrix used on the heat map (cluster argument still set to FALSE). One can notice that except for a mid-range band accross all NR's and except for the lower half of NR_neuron_1, the non-remmiter are  active than the correspondent band on the remitter neurons.
+
+# 3. Thresholded over-representation analysis
+
+## 3.1 Separating significantly up and down-regulated genes
 
 
 
