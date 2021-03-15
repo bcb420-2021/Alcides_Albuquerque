@@ -606,6 +606,8 @@ to the non remitters dataset, in which our rank will consist in the following pr
 # Attached name to gene results matrix
 qlf_output_hits_withgn_RNxR <- merge(SSRI_exp[,1], qlf_output_hits_RNxR, by.x=1, by.y=0)
 
+colnames(qlf_output_hits_withgn_RNxR) <- c("gname", colnames(qlf_output_hits_withgn_RNxR)[-1])
+
 # Calculating our rank as -log(p-value) * logFC
 qlf_output_hits_withgn_RNxR[,"rank"] <- -log(qlf_output_hits_withgn_RNxR$PValue,base=10) * 
                                          sign(qlf_output_hits_withgn_RNxR$logFC)
@@ -614,12 +616,14 @@ qlf_output_hits_withgn_RNxR[,"rank"] <- -log(qlf_output_hits_withgn_RNxR$PValue,
 qlf_output_hits_withgn_RNxR <- qlf_output_hits_withgn_RNxR[order(qlf_output_hits_withgn_RNxR$rank),]
 
 # Separating up-regulated genes with threshold of 0.05
+# Note: the previous calculation modeled for FC R/NR
+# here, we are interested in FC NR/R
 upregulated_genes_RNxR <- qlf_output_hits_withgn_RNxR$gname[which(qlf_output_hits_withgn_RNxR$PValue < 0.05
-& qlf_output_hits_withgn_RNxR$logFC > 0)]
+& qlf_output_hits_withgn_RNxR$logFC < 0)]
 
 # Separating down-regulated genes with threshold of 0.05
 downregulated_genes_RNxR <- qlf_output_hits_withgn_RNxR$gname[which(qlf_output_hits_withgn_RNxR$PValue 
-                                                    < 0.05 & qlf_output_hits_withgn_RNxR$logFC < 0)]
+                                                    < 0.05 & qlf_output_hits_withgn_RNxR$logFC > 0)]
 ```
 
 Now doing the same to compare non-remitters to remitters:
@@ -628,6 +632,8 @@ Now doing the same to compare non-remitters to remitters:
 
 # Attached name to gene results matrix
 qlf_output_hits_withgn_RNxH <- merge(SSRI_exp[,1], qlf_output_hits_RNxH, by.x=1, by.y=0)
+
+colnames(qlf_output_hits_withgn_RNxH) <- c("gname", colnames(qlf_output_hits_withgn_RNxH)[-1])
 
 # Calculating our rank as -log(p-value) * logFC
 qlf_output_hits_withgn_RNxH[,"rank"] <- -log(qlf_output_hits_withgn_RNxH$PValue,base=10) * 
@@ -647,40 +653,56 @@ downregulated_genes_RNxH <- qlf_output_hits_withgn_RNxH$gname[which(qlf_output_h
 
 
 Save tables for later use if docker port connection is properly configured:
-```{r eval=FALSE}
+```{r}
 dir.create('output', showWarnings=FALSE)
 
 # Saving up-regulated genes NRxR
-write.table(x=upregulated_genes_RNxR, file=file.path("data","RNxR_upregulated_genes.txt"),sep="\t",
+write.table(x=upregulated_genes_RNxR, file=file.path("./","RNxR_upregulated_genes.txt"),sep="\t",
             row.names = FALSE,col.names = FALSE,quote = FALSE)
 
 # Saving down-regulated genes NRxR
-write.table(x=downregulated_genes_RNxR, file=file.path("data","RNxR_downregulated_genes.txt"),sep="\t",
+write.table(x=downregulated_genes_RNxR, file=file.path("./","RNxR_downregulated_genes.txt"),sep="\t",
             row.names = FALSE,col.names = FALSE,quote = FALSE)
 
 # Saving complete list NRxR
-write.table(x=data.frame(genename=qlf_output_hits_withgn$gname,
-                         F_stat=qlf_output_hits_withgn_RNxRn$rank),
-                         file=file.path("data","ca125_ranked_genelist.txt"),sep = "\t",
+write.table(x=data.frame(genename=qlf_output_hits_withgn_RNxR$gname,
+                         F_stat=qlf_output_hits_withgn_RNxR$rank
+                         ),
+                         file=file.path("./","RNxR_ranked_genelist.txt"),
+                         sep = "\t",
                          row.names = FALSE,col.names = FALSE,quote = FALSE)
 
 # Saving up-regulated genes RNxH
-write.table(x=upregulated_genes_RNxH, file=file.path("data","RNxH_upregulated_genes.txt"),sep="\t",
+write.table(x=upregulated_genes_RNxH, file=file.path("./","RNxH_upregulated_genes.txt"),sep="\t",
             row.names = FALSE,col.names = FALSE,quote = FALSE)
 
 # Saving down-regulated genes RNxH
-write.table(x=downregulated_genes_RNxH, file=file.path("data","RNxH_downregulated_genes.txt"),sep="\t",
+write.table(x=downregulated_genes_RNxH, file=file.path("./","RNxH_downregulated_genes.txt"),sep="\t",
             row.names = FALSE,col.names = FALSE,quote = FALSE)
 
 # Saving complete list RNxH
-write.table(x=data.frame(genename=qlf_output_hits_withgn$gname,
-                         F_stat=qlf_output_hits_withgn_RNxHn$rank),
-                         file=file.path("data","ca125_ranked_genelist.txt"),sep = "\t",
+write.table(x=data.frame(genename=qlf_output_hits_withgn_RNxH$gname,
+                         F_stat=qlf_output_hits_withgn_RNxH$rank
+                         ),
+                         file=file.path("./","RNxH_ranked_genelist.txt"),
+                         sep = "\t",
                          row.names = FALSE,col.names = FALSE,quote = FALSE)
 ```
 
-## 3.3 Gene List Enrichment Analysis
+## 3.3 Gene List Function Enrichment (over-representation) Analysis
 
+We will be using G:Profiler web server [@GProfiler]to perform the above gene list enrichment analysis (version e102_eg49_p15_7a9b4d6).
+
+Thus we will be using the following annotation database in the enrichment:
+
+- Through GO biological process annotation release 2021-02-01
+  (with Ensembl version 102)
+- Reactome version 75 (December 2020)
+- Wikipathways (December 2020 release)
+
+All electronic GO annotations were discarded and the annotation term size was restricted to 200 genes.
+
+The tool uses Fisher Exact test. We used 0.05 threshold for significance. In our list of up and down regulated genes we could filter for only 4 members of HTR gene family, since we had a strict standard to cut out any mapped genes with less than 9 reads. Thus we have now decided to use Benjamni-Hochberg correction for multiple hypothesis testing due to its less stringent profile compared to Bonferoni correction.
 
 # References
 
