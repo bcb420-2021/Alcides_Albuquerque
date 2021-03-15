@@ -1,0 +1,328 @@
+---
+title: "Assignment 2 - BCB420"
+subtitle: "Differential Gene Expression and Preliminary ORA"
+author: "Alcides Albuquerque"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    df_print: paged
+bibliography: A2.bib
+csl: apa.csl
+---
+
+Quick links (more details at introduction):
+
+Assignment used the base docker image [acessible here] (https://hub.docker.com/repository/docker/risserlin/bcb420-base-image).
+
+Chosen study: [Serotonin-induced hyperactivity in SSRI-resistant major depressive disorder patient-derived neurons] (https://pubmed.ncbi.nlm.nih.gov/30700803/)[@vadodaria2019serotonin].
+
+GEO data set: [GEO accession GSE125664; Vadoraria et al., 2019] (https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125664)[@vadorariaGEO]
+
+## 1. Introduction: A1 summary
+
+## 1.1 Selection of an expression data set and software tools
+
+Previously, in A1, we have found an appropriate study (in terms of RNA expression analysis and clinical relevance) by searching RNAseq data set available at [Gene Expression Omnibus repository - GEO] (www.ncbi.nlm.nih.gov/geo)[@GEO].
+
+We used Geometadb[@Geometadb] to perform the search of GEO data sets and RSQLite[@RSQLite] and GEOquerry[@GEOquery] package to perform the queries using a downloaded copy of GEO contents' metadata. These packages were installed, when needed through BiocManager[@BiocManager] functionality. knitr[@knitr] package was later used to report data statistics and edgeR to aid on modeling and normalization of data.
+
+```{r echo = FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+if (!requireNamespace("GEOmetadb", quietly = TRUE))
+  BiocManager::install("GEOmetadb")
+
+if (!requireNamespace("RSQLite", quietly = TRUE))
+  BiocManager::install("RSQLite")
+
+if (!requireNamespace("GEOquery", quietly = TRUE))
+  BiocManager::install("GEOquery")
+
+if (!requireNamespace("knitr", quietly = TRUE))
+  BiocManager::install("knitr")
+
+if (!requireNamespace("edgeR", quietly = TRUE))
+  BiocManager::install("edgeR")
+
+if(!file.exists('GEOmetadb.sqlite')) 
+  GEOmetadb::getSQLiteFile()
+
+library(BiocManager)
+library(GEOmetadb)
+library(RSQLite)
+library(GEOquery)
+library(knitr)
+library(edgeR)
+```
+
+```{r eval = FALSE, echo = FALSE}
+con <- dbConnect(SQLite(),'GEOmetadb.sqlite')
+
+sql <- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title,",
+            " gse.submission_date,",
+            " gse.supplementary_file",
+            "FROM",
+            " gse JOIN gse_gpl ON gse_gpl.gse=gse.gse",
+            " JOIN gpl ON gse_gpl.gpl=gpl.gpl",
+            "WHERE",
+            " gse.submission_date > '2011-02-01' AND",
+            " gse.title LIKE '%depressive%' AND",
+            " gpl.organism LIKE '%Homo sapiens%' AND",
+            " gpl.technology LIKE '%high-throughput sequencing%' ",
+            " ORDER BY gse.submission_date DESC",sep=" ")
+
+rs <- dbGetQuery(con,sql)
+dim(rs)
+dbDisconnect(con)
+```
+
+After 4 search iterations we have chosen the following study: [Serotonin-induced hyperactivity in SSRI-resistant major depressive disorder patient-derived neurons] (https://pubmed.ncbi.nlm.nih.gov/30700803/)[@vadodaria2019serotonin] in which the authors tried to elucidate the common clinical challenge of patients suffering from Major Depressive Disorder (MDD) who fail or respond only partially to SSRI therapy (aka non-remitters). We currently have no biomarkers to identify these patients. Moreover, is not known the specific mechanism underpinning SSRI and similar SNRI-induced suicidality.
+
+It also provided the raw mRNA counts for analysis. The controls are represented by expression data in forebrain neuron lines developed from Induced pluripotent stem cells (iPSCs) removed through non-CNS biopsy of healthy patients exposed to SSRIs. The test group involve the same cells from MDD patients which suffered from SSRI treatment resistance and MDD patients which responded to SSRI treatment.
+
+The sample size in this study is 9, with adequate control and 2 testing groups (MDD with an without SSRI-based treatment resistance). 
+
+
+## 1.2. Downloading the data, cleaning and compute summary statistics
+
+The data for this study is contained in one supplemental .csv file called "GSE125664_Vadodaria_MDDNeurons_RawCounts":
+
+```{r echo=FALSE}
+if(!file.exists('SSRI_exp_file')) {
+    sfiles = getGEOSuppFiles('GSE125664')
+    fnames = rownames(sfiles)
+    # Just one file, but we have a .csv here
+    SSRI_exp = read.csv(fnames[1],header=TRUE, check.names = FALSE)
+    # Naming its gene name column as gname
+    names(SSRI_exp)[1] <- "gname"
+    saveRDS(SSRI_exp, file = "SSRI_exp_file.rds")
+}
+
+if(!exists("SSRI_exp")){
+    SSRI_exp <- readRDS(file = "SSRI_exp_file.rds")
+}
+
+# Capturing its description, inspired on lecture 4
+SSRI_gse <- getGEO("GSE125664",GSEMatrix=FALSE)
+SSRI_gpl <- names(GPLList(SSRI_gse))[1]
+SSRI_gpl_info <- Meta(getGEO(SSRI_gpl))
+```
+
+__Platform title:__ `r SSRI_gpl_info$title`
+
+__Submission date:__ `r SSRI_gpl_info$submission_date`
+
+__Last update date:__ `r SSRI_gpl_info$last_update_date`
+
+__Organisms:__  `r SSRI_gpl_info$organism`
+
+Snapshot of data first 10 mapped genes at this stage:
+
+```{r fig.width= 3, fig.height= 3}
+kable(SSRI_exp[1:10,1:10], format = "html")
+```
+
+```{r}
+dim(SSRI_exp)
+```
+
+And we have 22351 genes with measures for 3 controls, 3 non-resistant-to-SSRI MDD patients and 3 resistant-to-SSRI MDD patients.
+
+Counts for each gene show each gene with the frequency of exactly one, except for some miscoded names.
+
+```{r eval = FALSE, echo = FALSE}
+gene_counts <- sort(table(SSRI_exp$gname), decreasing = TRUE)
+```
+
+28 genes contained miscoded names (they expressed dates instead of valid identifiers) and we will have to remove them. 
+
+```{r echo = FALSE}
+SSRI_exp_clean <- SSRI_exp[ !(SSRI_exp$gname %in% c("1-Mar", "1-Mar", "2-Mar", "2-Mar", "1-Dec", "1-Sep", "10-Mar", "10-Sep", "11-Mar", "11-Sep", "12-Sep", "14-Sep", "15-Sep", "2-Sep", "3-Mar", "3-Sep", "4-Mar", "4-Sep", "5-Mar", "5-Sep", "6-Mar", "6-Sep", "7-Mar", "7-Sep", "8-Mar", "8-Sep", "9-Mar", "9-Sep")), ]
+```
+
+Each mRNA reading was already mapped to unique genes expressed as HUGO Gene Nomenclature Committee symbols) so we proceeded to calculate counts per million reads mapped (cmp). All the counts with less than 9 counts where removed and that removed 9350 gene observations. There after that, and after the cleaning the data, there were no duplicates and all the symbols where unique symbols that complied with HUGO Gene Nomenclature Committee. After all removals and manipulations, the dataset coverage was 0.59.
+
+```{r echo = FALSE}
+cpms = cpm(SSRI_exp_clean[,2:10])
+rownames(cpms) <- SSRI_exp_clean[,1]
+# Our study contains 9 samples
+keep = rowSums(cpms >1) >=9
+SSRI_exp_filtered = SSRI_exp_clean[keep,]
+```
+
+We have kept 12973 gene counts, meaning we had to filter out `r 1-(dim(SSRI_exp_filtered)[1]/dim(SSRI_exp_clean)[1])` of our gene-mapped RNA seq observations
+
+## 1.3. Normalization
+
+We used TMM (Trimmed Mean of M-values) normalization. For most samples the distribution curve pre and post-normalization is very similar, however there is a noticiable change towards the mean (a bit higher than 5) for the second control (H_neuron_2) and, interestingly, for 2 of the 3 nonremitter patients.
+
+```{R fig.width=5, fig.height=5}
+
+data2plot <- log2(cpm(SSRI_exp_filtered[,2:10]))
+
+SSRI_matrix <- as.matrix(SSRI_exp_filtered[,-1])
+
+rownames(SSRI_matrix) <- SSRI_exp_filtered$gname
+
+# inspired by Yi Fei Huang approach in terms of merging samples into groups
+
+categories <- c("healthy", "healthy", "healthy",
+             "nonremitter", "nonremitter", "nonremitter",
+             "remitter", "remitter", "remitter")
+
+# inspired by lecture 4 slides 51 and 52
+
+d = DGEList(counts=SSRI_matrix, group=categories)
+
+# Calculation of normalization factors
+
+d = calcNormFactors(d)
+
+normalized_counts <- cpm(d)
+    
+```
+
+
+
+# 2. Differential Gene Expression analysis
+
+## 2.1 Model design and Differential Expression Significance Calculation with correction
+
+In this section, we will used the normalized data produced above to test for statistically significant expression differences for each of the mapped genes, between our 3 groups (we will call it status) of interest in our designed model: healthy patients exposed to SSRI (control), non-remitters MDD exposed to SSRI (test 2) and remitter MDD exposed to SSRI (test 2). 
+
+An expansion of this model includes 2 groups (we will call this attribute "affected"), healthy (ND) and affected by disease (D), although this expansion wouldn't add granularity to the assessment of different subtypes of MDD (refractive or not to treatment), it could help in increasing specificity to the bayes differential expression significance calculation.
+
+```{r}
+# First we create our model
+
+samples <- data.frame(status = c("H", "H", "H", "NR", "NR","NR", "R", "R", "R"),
+                      affected = c("ND", "ND", "ND", "D", "D","D", "D", "D", "D"))
+
+rownames(samples) <- colnames(SSRI_exp[-1])
+# model on affected Vs healthy
+model_design <- model.matrix(~samples$affected)
+# model on status of remission to SSRI (remitters Vs non-remitters)
+model_design_2 <- model.matrix(~samples$status)
+
+# compound model taking into account both conditions
+# model_design_compound <- model.matrix(~samples$affected + samples$status)
+  
+```
+
+Now we will fit our normalized data to each of the built models.
+
+### Using Limma
+```{r}
+# As inspired by lecture 6, using limma, doesn't add result in significantly different
+# restults compared with chosen approach (see following code chunk):
+expressionMatrix <- as.matrix(normalized_counts)
+rownames(expressionMatrix) <- SSRI_exp_filtered$gname
+colnames(expressionMatrix) <- colnames(SSRI_exp_filtered)[2:10]
+minimalSet <- ExpressionSet(assayData=expressionMatrix)
+# Fitting for Affected Vs Controls
+fit <- lmFit(minimalSet, model_design)
+# Fitting for type of SSRI response (remitters and non-remitters)
+fit_resp <- lmFit(minimalSet, model_design_2)
+```
+Using empirical Bayes method:
+```{r}
+fit_2 <- eBayes(fit_resp,trend=TRUE)
+fit_resp_2 <- eBayes(fit_resp,trend=TRUE)
+```
+Now we can calculate the differential expression and apply the correction for multiple
+hypothesis test through Benjamni-Hochberg method (less than 1 minute processing time).
+```{r}
+#calculate differential expression, inspired by lecture 6
+topfit <- topTable(fit_2, coef=ncol(model_design), adjust.method = "BH",
+number = nrow(expressionMatrix))
+
+topfit_resp <- topTable(fit_resp_2, coef=ncol(model_design_2), adjust.method = "BH",
+number = nrow(expressionMatrix))
+
+gene_names <- data.frame(SSRI_exp[,1])
+colnames(gene_names) <- c("hgnc_symbol")
+output_hits <- merge(gene_names, topfit, by.y=0, by.x=1, all.y=TRUE)
+output_hits_2 <- merge(gene_names, topfit_resp, by.y=0, by.x=1, all.y=TRUE)
+
+#sort by p-value
+output_hits <- output_hits[order(output_hits$P.Value),]
+output_hits_2 <- output_hits_2[order(output_hits_2$P.Value),]
+```
+And the results for each of the models, with and without Benjamni-Hochberg corrections
+for multiple hypothesis tests are as following.
+
+For Healthy Vs MDD patients:
+
+```{r}
+kable(output_hits[1:10,],type="html",row.names = FALSE)
+```
+For Remitter status:
+```{r}
+kable(output_hits_2[1:10,],type="html",row.names = FALSE)
+```
+Applying a threshold of p-value < 0.05 and computing how many genes passed the test:
+```{r}
+length(which(output_hits$P.Value < 0.05))
+length(which(output_hits_2$P.Value < 0.05))
+```
+* 2612 genes passed the test of significance for change in transcription factor for 
+  the healthy VS MDD model
+* 983 genes passed the test of significance for change in transcription factor for 
+  the "type-of-response-to-SSRI model
+
+
+Now computing how many mapped genes passed the p-value < 0.05 with Benjamni-Hochberg correction for multiple testing
+```{r}
+length(which(output_hits$adj.P.Val < 0.05))
+length(which(output_hits_2$adj.P.Val < 0.05))
+
+```
+* No gene passed the test of significance for change in transcription factor for 
+  the healthy VS MDD model with correction
+* No gene passed the test of significance for change in transcription factor for 
+  the "type-of-response-to-SSRI model with correction
+
+
+## Simple approach using one model
+In this approach we will use the model that differentiates between MDD patients that were
+non-responsive to SSRI (non-remitter or NR) from responsive patients (remitter or R), since
+this is main approach took by the paper's authors in its published version's transcriptome analysis (see [@vadodaria2019serotonin], page 801, specially fig 4.b)
+```{r}
+d = DGEList(counts=normalized_counts, group=samples$statusNR)
+
+# Dispersions
+d <- estimateDisp(d, model_design_2)
+
+# Computing normalization factors
+d <- calcNormFactors(d)
+
+# fitting models
+fit <- glmQLFit(d, model_design_2)
+
+# Computing differential expression
+qlf.pos_vs_neg <- glmQLFTest(fit, coef='samples$statusNR')
+```
+
+```{r}
+# Results
+qlf_output_hits <- topTags(qlf.pos_vs_neg, sort.by = "PValue", n = nrow(SSRI_exp))
+# Passing p-value < 0.05?
+length(which(qlf_output_hits$table$PValue < 0.05))
+# Passing correction
+length(which(qlf_output_hits$table$FDR < 0.05))
+## [1] 0
+```
+* 2536 genes passed the test of significance for change in transcription
+* No gene passed the test of significance for change in transcription
+
+
+
+
+
+
+# References
+
+
