@@ -566,11 +566,120 @@ The conditions here (status of remitter or non-remitter) are intentionally clust
 
 # 3. Thresholded over-representation analysis
 
-## 3.1 Separating significantly up and down-regulated genes
+## 3.1 Quantifying significantly up and down-regulated genes
+
+First comparing non-remitters and controls:
+```{r}
+## up regulated genes:
+length(which(qlf_output_hits_RNxH$table$PValue < 0.05
+& qlf_output_hits_RNxH$table$logFC > 0))
+## down regulated genes:
+length(which(qlf_output_hits_RNxH$table$PValue < 0.05
+& qlf_output_hits_RNxH$table$logFC < 0))
+```
+We have 1345 genes significantly up-regulated in non-remmiters comparing to controls, and 961 down-regulated.
+
+Now comparing non-remitters and remitters:
+```{r}
+## up regulated genes:
+length(which(qlf_output_hits_RNxR$table$PValue < 0.05
+& qlf_output_hits_RNxR$table$logFC > 0))
+## down regulated genes:
+length(which(qlf_output_hits_RNxR$table$PValue < 0.05
+& qlf_output_hits_RNxR$table$logFC < 0))
+```
+We have 379 genes significantly up-regulated in non-remmiters comparing to controls, and 353 down-regulated, which is compatible with finding on paper, where the delta of expression among MDD patients is decreased when compared to remitters and controls.
+
+## 3.2 Creating thresholded list
+
+Here we will create a thresholded list, initially with the remitters dataset compared
+to the non remitters dataset, in which our rank will consist in the following product:
+-log(p-value) * logFC. We then create 3 files to contain, separately:
+
+1) all significantly differentially expressed genes together 
+2) the up-regulated significantly differentially expressed genes
+3) the down-regulated significantly differentially expressed genes
+
+```{r}
+# Inspired by lecture 7
+
+# Attached name to gene results matrix
+qlf_output_hits_withgn_RNxR <- merge(SSRI_exp[,1], qlf_output_hits_RNxR, by.x=1, by.y=0)
+
+# Calculating our rank as -log(p-value) * logFC
+qlf_output_hits_withgn_RNxR[,"rank"] <- -log(qlf_output_hits_withgn_RNxR$PValue,base=10) * 
+                                         sign(qlf_output_hits_withgn_RNxR$logFC)
+
+# Ordering per rank
+qlf_output_hits_withgn_RNxR <- qlf_output_hits_withgn_RNxR[order(qlf_output_hits_withgn_RNxR$rank),]
+
+# Separating up-regulated genes with threshold of 0.05
+upregulated_genes_RNxR <- qlf_output_hits_withgn_RNxR$gname[which(qlf_output_hits_withgn_RNxR$PValue < 0.05
+& qlf_output_hits_withgn_RNxR$logFC > 0)]
+
+# Separating down-regulated genes with threshold of 0.05
+downregulated_genes_RNxR <- qlf_output_hits_withgn_RNxR$gname[which(qlf_output_hits_withgn_RNxR$PValue 
+                                                    < 0.05 & qlf_output_hits_withgn_RNxR$logFC < 0)]
+```
+
+Now doing the same to compare non-remitters to remitters:
+```{r}
+# Inspired by lecture 7
+
+# Attached name to gene results matrix
+qlf_output_hits_withgn_RNxH <- merge(SSRI_exp[,1], qlf_output_hits_RNxH, by.x=1, by.y=0)
+
+# Calculating our rank as -log(p-value) * logFC
+qlf_output_hits_withgn_RNxH[,"rank"] <- -log(qlf_output_hits_withgn_RNxH$PValue,base=10) * 
+                                         sign(qlf_output_hits_withgn_RNxH$logFC)
+
+# Ordering per rank
+qlf_output_hits_withgn_RNxH <- qlf_output_hits_withgn_RNxH[order(qlf_output_hits_withgn_RNxH$rank),]
+
+# Separating up-regulated genes with threshold of 0.05
+upregulated_genes_RNxH <- qlf_output_hits_withgn_RNxH$gname[which(qlf_output_hits_withgn_RNxH$PValue < 0.05
+& qlf_output_hits_withgn_RNxH$logFC > 0)]
+
+# Separating down-regulated genes with threshold of 0.05
+downregulated_genes_RNxH <- qlf_output_hits_withgn_RNxH$gname[which(qlf_output_hits_withgn_RNxH$PValue 
+                                                    < 0.05 & qlf_output_hits_withgn_RNxH$logFC < 0)]
+```
 
 
+Save tables for later use if docker port connection is properly configured:
+```{r eval=FALSE}
+dir.create('output', showWarnings=FALSE)
 
+# Saving up-regulated genes NRxR
+write.table(x=upregulated_genes_RNxR, file=file.path("data","RNxR_upregulated_genes.txt"),sep="\t",
+            row.names = FALSE,col.names = FALSE,quote = FALSE)
 
+# Saving down-regulated genes NRxR
+write.table(x=downregulated_genes_RNxR, file=file.path("data","RNxR_downregulated_genes.txt"),sep="\t",
+            row.names = FALSE,col.names = FALSE,quote = FALSE)
+
+# Saving complete list NRxR
+write.table(x=data.frame(genename=qlf_output_hits_withgn$gname,
+                         F_stat=qlf_output_hits_withgn_RNxRn$rank),
+                         file=file.path("data","ca125_ranked_genelist.txt"),sep = "\t",
+                         row.names = FALSE,col.names = FALSE,quote = FALSE)
+
+# Saving up-regulated genes RNxH
+write.table(x=upregulated_genes_RNxH, file=file.path("data","RNxH_upregulated_genes.txt"),sep="\t",
+            row.names = FALSE,col.names = FALSE,quote = FALSE)
+
+# Saving down-regulated genes RNxH
+write.table(x=downregulated_genes_RNxH, file=file.path("data","RNxH_downregulated_genes.txt"),sep="\t",
+            row.names = FALSE,col.names = FALSE,quote = FALSE)
+
+# Saving complete list RNxH
+write.table(x=data.frame(genename=qlf_output_hits_withgn$gname,
+                         F_stat=qlf_output_hits_withgn_RNxHn$rank),
+                         file=file.path("data","ca125_ranked_genelist.txt"),sep = "\t",
+                         row.names = FALSE,col.names = FALSE,quote = FALSE)
+```
+
+## 3.3 Gene List Enrichment Analysis
 
 
 # References
