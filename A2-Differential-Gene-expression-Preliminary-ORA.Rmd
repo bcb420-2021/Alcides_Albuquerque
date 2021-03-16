@@ -14,13 +14,13 @@ csl: apa.csl
 
 Quick links (more details at introduction):
 
-Assignment used the base docker image [acessible here] (https://hub.docker.com/repository/docker/risserlin/bcb420-base-image).
+Assignment used the base docker image [acessible here](https://hub.docker.com/repository/docker/risserlin/bcb420-base-image).
 
-Chosen study: [Serotonin-induced hyperactivity in SSRI-resistant major depressive disorder patient-derived neurons] (https://pubmed.ncbi.nlm.nih.gov/30700803/)[@vadodaria2019serotonin].
+Chosen study: [Serotonin-induced hyperactivity in SSRI-resistant major depressive disorder patient-derived neurons](https://pubmed.ncbi.nlm.nih.gov/30700803/)[@vadodaria2019serotonin].
 
-GEO data set: [GEO accession GSE125664; Vadoraria et al., 2019] (https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125664)[@vadorariaGEO]
+GEO data set: [GEO accession GSE125664](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125664)[@vadorariaGEO]
 
-## 1. Introduction: A1 summary
+# 1. Introduction: A1 summary
 
 ## 1.1 Selection of an expression data set and software tools
 
@@ -28,7 +28,7 @@ Previously, in A1, we have found an appropriate study (in terms of RNA expressio
 
 We used Geometadb[@Geometadb] to perform the search of GEO data sets and RSQLite[@RSQLite] and GEOquerry[@GEOquery] package to perform the queries using a downloaded copy of GEO contents' metadata. These packages were installed, when needed through BiocManager[@BiocManager] functionality. knitr[@knitr] package was later used to report data statistics and edgeR to aid on modeling and normalization of data.
 
-```{r echo = FALSE}
+```{r, echo = FALSE, message = FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
@@ -66,7 +66,7 @@ library(ComplexHeatmap)
 library(circlize)
 ```
 
-```{r eval = FALSE, echo = FALSE}
+```{r, eval = FALSE, echo = FALSE, message = FALSE}
 con <- dbConnect(SQLite(),'GEOmetadb.sqlite')
 
 sql <- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title,",
@@ -98,7 +98,7 @@ The sample size in this study is 9, with adequate control and 2 testing groups (
 
 The data for this study is contained in one supplemental .csv file called "GSE125664_Vadodaria_MDDNeurons_RawCounts":
 
-```{r echo=FALSE}
+```{r, echo=FALSE, message = FALSE}
 if(!file.exists('SSRI_exp_file')) {
     sfiles = getGEOSuppFiles('GSE125664')
     fnames = rownames(sfiles)
@@ -129,7 +129,7 @@ __Organisms:__  `r SSRI_gpl_info$organism`
 
 Snapshot of data first 10 mapped genes at this stage:
 
-```{r fig.width= 3, fig.height= 3}
+```{r, fig.width= 3, fig.height= 3}
 kable(SSRI_exp[1:10,1:10], format = "html")
 ```
 
@@ -167,7 +167,7 @@ We have kept 12973 gene counts, meaning we had to filter out `r 1-(dim(SSRI_exp_
 
 We used TMM (Trimmed Mean of M-values) normalization. For most samples the distribution curve pre and post-normalization is very similar, however there is a noticiable change towards the mean (a bit higher than 5) for the second control (H_neuron_2) and, interestingly, for 2 of the 3 nonremitter patients.
 
-```{R fig.width=5, fig.height=5}
+```{R, fig.width=5, fig.height=5}
 
 data2plot <- log2(cpm(SSRI_exp_filtered[,2:10]))
 
@@ -392,7 +392,7 @@ length(which(qlf_output_hits_RNxR$table$FDR < 0.05))
 ```
 
 Although the results indicate the need for enrichment set analysis (which is one of the purpose of this assignment,
-as follows), this results are now more comparable with the source literature[@vadodaria2019], in which, at least
+as follows), this results are now more comparable with the source literature[@vadodaria2019serotonin], in which, at least
 for the set of genes presented there, the differential expression between remitters and controls is larger than
 the one between remitters and non-remitters. 
 
@@ -422,26 +422,63 @@ In order to have a more general view of the differences in expression among non-
 
 Comparing first pair of samples (remmitter Vs non-remmiters and its control)
 
-```{r fig.width= 4 fig.height=4}
+```{r, fig.width=4, fig.height=4}
 plotMA(log2(SSRI_exp[,c(5,8)]), ylab="M - ratio log expression", main="MA plot R VS NR 1st pair", status = SSRI_exp[,c(2)])
 ```
+Legend: Differential expression profile on the first pair of samples (remmitter Vs non-remmiters and its control)
+
 Second pair:
-```{r fig.width= 4 fig.height=4}
+```{r, fig.width=4, fig.height=4}
 plotMA(log2(SSRI_exp[,c(6,9)]), ylab="M - ratio log expression", main="MA plot R VS NR 2nd pair", status = SSRI_exp[,c(3)])
 ```
+Legend: Differential expression profile on the second pair of samples (remmitter Vs non-remmiters and its control)
 
 Third pair:
-```{r fig.width= 4 fig.height=4}
-plotMA(log2(SSRI_exp[,c(7,10)]), ylab="M - ratio log expression", main="MA plot R VS NR 3rd pair", status = SSRI_exp[,c(3)])
+```{r, fig.width= 4, fig.height=4}
+plotMA(log2(SSRI_exp[,c(7,10)]), ylab="M - ratio log expression", main="MA plot R VS NR 3rd pair", status = SSRI_exp[,c(4)])
 ```
-
-No useful insight is prompt when such large number of gene mapping is available so we decided to highlight only the group of genes related to the paper's biological hypothesis, concerning the following HTR family genes:
-
+Legend: Differential expression profile on the third pair of samples (remmitter Vs non-remmiters and its control)
 
 
-## Heat map
+No useful insight is prompt when such large number of gene mapping is available so we decided to highlight only the group of genes related to the paper's biological hypothesis, concerning the following HTR family genes, which interestingly are more actively differentially expressed than the average:
 
-In order to vizualize our mostly deferentially expressed genes we used a heat map as provided by the ComplexHeatmap package[@ComplexHeatmap)], also using circlize package [@circlize]. However the processing time was long for the whole dataset using those tools.
+```{r}
+plotMA(log2(SSRI_exp[7844:7866,c(5,8)]), ylab="M - ratio log expression", main="HTR family MA plot R VS NR 1st pair", status = SSRI_exp[,c(2)])
+```
+  
+
+Legend: Differential expression profile on the first pair of samples (remmitter Vs non-remmiters and its control for the following HTR family members: 
+
+1)HTR1A 2)HTR1B 3)HTR1D 4)HTR1E 5)HTR1F 6)HTR2A 
+
+7)HTR2B 8)HTR2C 9)HTR3A 10)HTR3B 11)HTR3C 12)HTR3D 13)HTR3E
+
+```{r}
+plotMA(log2(SSRI_exp[7844:7866,c(6,9)]), ylab="M - ratio log expression", main="HTR family MA plot R VS NR 2nd pair", status = SSRI_exp[,c(3)])
+```
+ 
+
+Legend: Differential expression profile on the second pair of samples (remmitter Vs non-remmiters and its control for the following HTR family members: 
+
+1)HTR1A 2)HTR1B 3)HTR1D 4)HTR1E 5)HTR1F 6)HTR2A 
+
+7)HTR2B 8)HTR2C 9)HTR3A 10)HTR3B 11)HTR3C 12)HTR3D 13)HTR3E
+
+```{r, fig.width=4, fig.height=4}
+plotMA(log2(SSRI_exp[7844:7866,c(7,10)]), ylab="M - ratio log expression", main="HTR family MA plot R VS NR 3rd pair", status = SSRI_exp[,c(4)])
+```
+ 
+
+Legend: Differential expression profile on the third pair of samples (remmitter Vs non-remmiters and its control for the following HTR family members: 
+
+1)HTR1A 2)HTR1B 3)HTR1D 4)HTR1E 5)HTR1F 6)HTR2A 
+
+7)HTR2B 8)HTR2C 9)HTR3A 10)HTR3B 11)HTR3C 12)HTR3D 13)HTR3E
+
+
+## 2.3 Heat map
+
+In order to visualize our mostly diferentially expressed genes we used a heat map as provided by the ComplexHeatmap package[@ComplexHeatmap)], also using circlize package [@circlize]. However the processing time was long for the whole dataset using those tools.
 
 ```{r eval = FALSE}
 # As inspired in Lecture 6
@@ -516,7 +553,7 @@ show_row_names = FALSE,show_heatmap_legend = TRUE)
 current_heatmap
 
 ```
-Legend: The conditions here (status of non-remmiter or control) are intentionally clusted toguether due to the order of the matrix (cluster argument still set to FALSE) used on the heat map (uncomment unclustering code to see it otherwise). One can notice that the bottom half of the over expressed sets on the non-remmiter band is more active at remitters neurons 2 and 3 but still overexpressed across all test samples.
+Legend: The conditions here (status of non-remitter or control) are intentionally clustered together due to the order of the matrix (cluster argument still set to FALSE) used on the heat map (uncomment unclustering code to see it otherwise). One can notice that the bottom half of the over expressed sets on the non-remitter band is more active at remitters neurons 2 and 3 but still overexpressed across all test samples.
 
 
 Now for non-remitters VS remitters:
@@ -562,7 +599,7 @@ current_heatmap
 
 ```
 
-The conditions here (status of remitter or non-remitter) are intentionally clusted toguether due to the order of the matrix used on the heat map (cluster argument still set to FALSE). One can notice that except for a mid-range band accross all NR's and except for the lower half of NR_neuron_1, the non-remmiter are  active than the correspondent band on the remitter neurons.
+The conditions here (status of remitter or non-remitter) are intentionally clustered together due to the order of the matrix used on the heat map (cluster argument still set to FALSE). One can notice that except for a mid-range band across all NR's and except for the lower half of NR_neuron_1, the non-remitter are  active than the correspondent band on the remitter neurons.
 
 # 3. Thresholded over-representation analysis
 
@@ -577,7 +614,7 @@ length(which(qlf_output_hits_RNxH$table$PValue < 0.05
 length(which(qlf_output_hits_RNxH$table$PValue < 0.05
 & qlf_output_hits_RNxH$table$logFC < 0))
 ```
-We have 1345 genes significantly up-regulated in non-remmiters comparing to controls, and 961 down-regulated.
+We have 1345 genes significantly up-regulated in non-remitters comparing to controls, and 961 down-regulated.
 
 Now comparing non-remitters and remitters:
 ```{r}
@@ -588,7 +625,7 @@ length(which(qlf_output_hits_RNxR$table$PValue < 0.05
 length(which(qlf_output_hits_RNxR$table$PValue < 0.05
 & qlf_output_hits_RNxR$table$logFC < 0))
 ```
-We have 379 genes significantly up-regulated in non-remmiters comparing to controls, and 353 down-regulated, which is compatible with finding on paper, where the delta of expression among MDD patients is decreased when compared to remitters and controls.
+We have 379 genes significantly up-regulated in non-remitters comparing to controls, and 353 down-regulated, which is compatible with finding on paper, where the delta of expression among MDD patients is decreased when compared to remitters and controls.
 
 ## 3.2 Creating thresholded list
 
@@ -691,11 +728,11 @@ write.table(x=data.frame(genename=qlf_output_hits_withgn_RNxH$gname,
 
 ## 3.3 Gene List Function Enrichment (over-representation) Analysis
 
-We will be using G:Profiler web server [@GProfiler]to perform the above gene list enrichment analysis (version e102_eg49_p15_7a9b4d6).
+We will be using G:Profiler web server[@gprofiler]to perform the above gene list enrichment analysis (version e102_eg49_p15_7a9b4d6).
 
 Thus we will be using the following annotation database in the enrichment:
 
-- Through GO biological process annotation release 2021-02-01
+- GO biological process annotation release 2021-02-01
   (with Ensembl version 102)
 - Reactome version 75 (December 2020)
 - Wikipathways (December 2020 release)
@@ -704,6 +741,280 @@ All electronic GO annotations were discarded and the annotation term size was re
 
 The tool uses Fisher Exact test. We used 0.05 threshold for significance. In our list of up and down regulated genes we could filter for only 4 members of HTR gene family, since we had a strict standard to cut out any mapped genes with less than 9 reads. Thus we have now decided to use Benjamni-Hochberg correction for multiple hypothesis testing due to its less stringent profile compared to Bonferoni correction.
 
-# References
+### 3.3.1 Results for non-remitters VS controls analysis in up-regulated genes
+
+![Fig 1, ORA results non-remitters VS controls in up-regulated genes](./figures/RNxH_up_regulated.png)
+Fig 1 - Legend: ORA results non-remitters VS controls in up-regulated genes
+
+
+![Fig 2 ORA with Wiki Pathways results for non-remitters VS controls in up-regulated genes](./figures/wp_NRxH_up.png)
+Fig 2 - Legend: ORA with Wiki Pathway results for non-remitters VS controls in up-regulated genes, here we notice noticed all 31 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+![Fig 3 ORA with reactome results for non-remitters VS controls in up-regulated genes](./figures/reactome_NRxH_up.png)
+Fig 3 - Legend: ORA with Reactome results for non-remitters VS controls in up-regulated genes, here we notice the most significant results of a total of 89 results over the 0.05 threshold with terms of maximum size of 200.
+
+
+![Fig 4 ORA with GO results for non-remitters VS controls in up-regulated genes](./figures/GO_NRxH_1_up.png)
+Fig 4 - Legend: ORA with GO results for non-remitters VS controls in up-regulated genes, here we notice noticed the 35 most significant entries of a total of 467 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+
+
+
+
+### 3.3.2 Results for non-remitters VS controls analysis in down-regulated genes
+
+![Fig 5, ORA results non-remitters VS controls in down-regulated genes](./figures/NRxH_down_regulated.png)
+Fig 5 - Legend: ORA results non-remitters VS controls in down-regulated genes
+
+
+![Fig 6 ORA with Wiki Pathways results for non-remitters VS controls in down-regulated genes](./figures/wp_NRxH_down.png)
+Fig 6 - Legend: ORA with Wiki Pathway results for non-remitters VS controls in down-regulated genes, here we notice noticed all 26 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+![Fig 7 ORA with reactome results for non-remitters VS controls in down-regulated genes](./figures/reactome_NRxH_down.png)
+Fig 7 - Legend: ORA with Reactome results for non-remitters VS controls in down-regulated genes, here we notice the most significant results of a total of 139 results over the 0.05 threshold with terms of maximum size of 200.
+
+
+![Fig 8 ORA with GO results for non-remitters VS controls in down-regulated genes](./figures/GO_NRxH_1_down.png)
+Fig 8 - Legend: ORA with GO results for non-remitters VS controls in down-regulated genes, here we notice noticed the most significant entries of a total of 89 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+
+
+
+
+
+
+### 3.3.3 Results for non-remitters VS controls analysis for all genes
+
+![Fig 9, ORA results non-remitters VS controls in all genes](./figures/NRxH_all.png)
+Fig 9 - Legend: ORA results non-remitters VS controls in all-regulated genes
+
+
+![Fig 10 ORA with Wiki Pathways results for non-remitters VS controls in all](./figures/wp_NRxH_all.png)
+Fig 10 - Legend: ORA with Wiki Pathway results for non-remitters VS controls in all genes, here we notice noticed the most significant of the 175 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+![Fig 11 ORA with reactome results for non-remitters VS controls in all genes](./figures/reactome_NRxH_all.png)
+Fig 11 - Legend: ORA with Reactome results for non-remitters VS controls in all genes, here we notice the most significant results of a total of 601 results over the 0.05 threshold with terms of maximum size of 200.
+
+
+![Fig 12 ORA with GO results for non-remitters VS controls in all genes](./figures/GO_NRxH_1_all.png)
+Fig 12 - Legend: ORA with GO results for non-remitters VS controls in all genes, here we notice noticed the most significant entries of a total of 962 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+
+
+
+
+
+
+
+### 3.3.4 Results for non-remitters VS remitters analysis in up-regulated genes
+
+
+![Fig 13, ORA results non-remitters VS remitters in up-regulated genes](./figures/RNxR_up_regulated.png)
+
+Fig 13 - Legend: ORA results non-remitters VS remitters in up-regulated genes
+
+
+![Fig 14 ORA with Wiki Pathways results for non-remitters VS remitters in up-regulated genes](./figures/wp_NRxR_up.png)
+
+Fig 14 - Legend: ORA with Wiki Pathway results for non-remitters VS remitters in up-regulated genes, here we notice noticed all 12 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+![Fig 15 ORA with reactome results for non-remitters VS remitters in up-regulated genes](./figures/reactome_NRxR_up.png)
+
+Fig 15 - Legend: ORA with Reactome results for non-remitters VS remitters in up-regulated genes, here we notice all 28 results over the 0.05 threshold with terms of maximum size of 200.
+
+
+![Fig 16 ORA with GO results for non-remitters VS remitters in up-regulated genes](./figures/GO_NRxR_1_up.png)
+
+Fig 16 - Legend: ORA with GO results for non-remitters VS remitters in up-regulated genes, here we notice noticed the most significant entries of a total of 110 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+
+
+
+
+
+### 3.3.5 Results for non-remitters VS remitters analysis in down-regulated genes
+
+
+![Fig 17, ORA results non-remitters VS remitters in down-regulated genes](./figures/NRxR_down_regulated.png)
+Fig 17 - Legend: ORA results non-remitters VS remitters in down-regulated genes
+
+
+![Fig 18 ORA with Wiki Pathways results for non-remitters VS remitters in down-regulated genes](./figures/wp_NRxR_down.png)
+Fig 18 - Legend: ORA with Wiki Pathway results for non-remitters VS remitters in down-regulated genes, here we notice noticed all 3 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+![Fig 19 ORA with reactome results for non-remitters VS remitters in down-regulated genes](./figures/reactome_NRxR_down.png)
+Fig 19 - Legend: ORA with Reactome results for non-remitters VS remitters in down-regulated genes, here we notice no result passed the 0.05 threshold with terms of maximum size of 200.
+
+
+![Fig 20 ORA with GO results for non-remitters VS remitters in down-regulated genes](./figures/GO_NRxR_1_down.png)
+Fig 20 - Legend: ORA with GO results for non-remitters VS remitters in down-regulated genes, here we notice noticed all the 9 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+### 3.3.6 Results for non-remitters VS remitters analysis for all genes
+
+![Fig 13, ORA results non-remitters VS remitters in all genes](./figures/NRxR_all.png)
+Fig 13 - Legend: ORA results non-remitters VS remitters in all-regulated genes
+
+
+![Fig 14 ORA with Wiki Pathways results for non-remitters VS remitters in all](./figures/wp_NRxR_all.png)
+Fig 14 - Legend: ORA with Wiki Pathway results for non-remitters VS remitters in all genes, here we notice noticed the most significant of the 123 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+![Fig 15 ORA with reactome results for non-remitters VS remitters in all genes](./figures/reactome_NRxR_all.png)
+Fig 15 - Legend: ORA with Reactome results for non-remitters VS remitters in all genes, here we notice the most significant results of a total of 626 results over the 0.05 threshold with terms of maximum size of 200.
+
+
+![Fig 16 ORA with GO results for non-remitters VS remitters in all genes](./figures/GO_NRxR_1_all.png)
+Fig 16 - Legend: ORA with GO results for non-remitters VS remitters in all genes, here we notice noticed the most significant entries of a total of 981 results over the 0.05 threshold and terms of maximum size of 200.
+
+
+# 4. Interpretation
+
+The forebrain neurons used in the study, as discussed in A1, were developed through a dedifferentiation technique which induce the formation pluripotent stem cells (iPSCs) from skin fibroblast cells. That technique is related to up and down regulation of several groups of genes that will be reflected on the results at section 3. Many of the results, especially from GO annotation correlates with literature on the dedifferentiation technique [@soliman][@brennand]. 
+
+Even after taking that into consideration, the number of possible functional pathways elicited by the enrichment analysis revealed, especially when using reactome and Wiki Pathways annotations, that the number of over represented sets on the comparison of non-remitters and controls is much higher than at the comparison of non-remitters and remitters, which is also compatible with the source study[@vadodaria2019serotonin], but also in literature comparing pharmacological-response phenotype subgroups among those affected by MDD [@mrazek][@crysdale].
+
+Important to notice is the over-representation of eye development pathways in neurons exposed to SSRI, a finding that strongly correlate to 5-HT role in retinal process[@george2005retinal], and should therefore impair the viability of hypothesis based on its differential expression as markers of MDD itself.
+
+The most interesting finding from the current thresholded enrichment analysis, even after pondering over the limitations above, is the presence of over-represented sets on opiate receptor family and monoamine transport pathways, the later being confirmed by the source literature[@vadodaria2019serotonin]. The role of endogenous opiate in SSRI-resistant MDD patients may be, at least preliminary, good targets for further consideration, which I hope to undertake during A3 and its ranked approach to enrichment analysis.
+
+# 5. Summary answers for key questions
+
+### 5.1 How many genes were significantly differentially expressed? What thresholdsdid you use and why?
+
+Using the main paper's modeling (please see section 2.1.3), 2306 were differentially expressed for the non-remitters VS controls analysis and 732 for the remitters VS non-remitters analysis. For the other models please see section 2.1.1 and 2.1.2.
+
+The threshold used was 0.05 due to its widely accepted marker of significance although an analysis with 0.09 for the paper's model was also used in section 2.1.3 due to the fact that the source paper uses it for one of it tests (please see details at 2.1.3)
+
+### 5.2 Regarding multiple hypothesis correction method, which method did you use? And Why? How many genes passed correction?
+
+Please see section 2 for details.
+
+We used Benjamni-Hochberg correction for multiple testing. 
+
+Reason: In A1, we could filter for only 4 members of HTR gene family (which is relevant for the main paper), since we had a strict standard to cut out any mapped genes with less than 9 reads. Thus we have now decided to use Benjamni-Hochberg correction for multiple hypothesis testing due to its less stringent profile compared to Bonferoni correction.
+
+No gene passed the correction, prompting for the use of functional enrichment analysis.
+
+### 5.3 Show the amount of differentially expressed genes using an MA Plot or a Volcano plot. Highlight genes of interest.
+
+Please see section 2.2
+
+### 5.4 Visualize your top hits using a heatmap. Do you conditions cluster together? Explain why or why not.
+
+Please see section 2.3. Conditions intentionally cluster together due to the order of processing, despite cluster argument being set to FALSE. (uncomment related chunk to uncluster, please see details on section 2.3)
+
+### 5.5 Regarding ORA, which method did you choose and why?
+
+Please see section 3.1 and 3.2 for details.
+
+We used Fisher Exact test on over-representation analysis through the G:Profiler web server[@gprofiler] (version e102_eg49_p15_7a9b4d6). We used this method for being appropriate to our thresholded list and easier to automate since it is built in at the G:Profiler tool for functional enrichment analysis.
+
+We use Benjamni-Hochberg correction for multiple hypothesis testing due to its less stringent profile compared to Bonferoni correction
+
+### 5.5 What annotation data did you use and why? What version of the annotation are you using?
+
+Please see section 3.3 for details.
+
+* GO biological process annotation release 2021-02-01 (with Ensembl version 102)
+* Reactome version 75 (December 2020)
+* Wikipathways (December 2020 release)
+All electronic GO annotations were discarded and the annotation term size was restricted to 200 genes.
+
+### 5.6 How many genesets were returned with what thresholds?
+
+Please see section 3.3 for details.
+
+ORA with Wiki Pathway results for non-remitters VS controls in up-regulated genes:
+
+* 31 results over the 0.05 threshold and terms of maximum size of 200.
+
+ORA with Reactome results for non-remitters VS controls in up-regulated genes:
+
+* 89 results over the 0.05 threshold with terms of maximum size of 200.
+
+ORA with GO results for non-remitters VS controls in up-regulated genes:
+
+* 467 results over the 0.05 threshold and terms of maximum size of 200.
+
+ORA with Wiki Pathway results for non-remitters VS controls in down-regulated genes:
+
+* 26 results over the 0.05 threshold and terms of maximum size of 200.
+
+ORA with Reactome results for non-remitters VS controls in down-regulated genes:
+
+* 139 results over the 0.05 threshold with terms of maximum size of 200.
+
+ORA with GO results for non-remitters VS controls in down-regulated genes:
+
+* 89 results over the 0.05 threshold and terms of maximum size of 200.
+
+ORA with Wiki Pathway results for non-remitters VS controls in all genes:
+
+* 175 results over the 0.05 threshold and terms of maximum size of 200.
+
+ORA with Reactome results for non-remitters VS controls in all genes:
+
+* 601 results over the 0.05 threshold with terms of maximum size of 200.
+
+ORA with GO results for non-remitters VS controls in all genes:
+
+* 962 results over the 0.05 threshold and terms of maximum size of 200.
+
+ORA with Wiki Pathway results for non-remitters VS remitters in up-regulated genes:
+
+* 12 results over the 0.05 threshold and terms of maximum size of 200.
+
+ORA with Reactome results for non-remitters VS remitters in up-regulated genes:
+
+* 28 results over the 0.05 threshold with terms of maximum size of 200.
+
+OORA with GO results for non-remitters VS remitters in up-regulated genes:
+
+* 110 results over the 0.05 threshold and terms of maximum size of 200.
+
+ORA with Wiki Pathway results for non-remitters VS remitters in down-regulated genes:
+
+* 3 results over the 0.05 threshold and terms of maximum size of 200.
+
+ORA with Reactome results for non-remitters VS remitters in down-regulated genes:
+
+* no result passed the 0.05 threshold with terms of maximum size of 200.
+
+ORA with GO results for non-remitters VS remitters in down-regulated genes:
+
+* 9 results over the 0.05 threshold and terms of maximum size of 200.
+
+ORA with Wiki Pathway results for non-remitters VS remitters in all genes:
+
+* 123 results over the 0.05 threshold and terms of maximum size of 200.
+
+ORA with Reactome results for non-remitters VS remitters in all genes:
+
+* 626 results over the 0.05 threshold with terms of maximum size of 200.
+
+ORA with GO results for non-remitters VS remitters in all genes:
+
+* 981 results over the 0.05 threshold and terms of maximum size of 200.
+
+### 5.7 How do these results compare to using the whole list
+
+The results on up-regulated and down-regulated were much fewer but much more significant the the ones yielded by ORA on the whole list, compatible with what was expected. Please see section 4 for details.
+
+### 5.8 Do the over-representation results support conclusions or mechanism discussed in the original paper?
+
+Yes, please see details in section 4.
+
+
+# 6. References
 
 
