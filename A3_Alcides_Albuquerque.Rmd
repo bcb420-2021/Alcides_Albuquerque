@@ -387,7 +387,7 @@ write.table(x=data.frame(genename=qlf_output_hits_withgn_RNxH$gname,
                          row.names = FALSE,col.names = FALSE,quote = FALSE)
 ```
 
-## 1.7 Gene List Function Enrichment (over-representation) Analysis
+## 1.7 Thresholded Gene List Function Enrichment Analysis
 
 We then used G:Profiler web server[@gprofiler]to perform the above gene list enrichment analysis (version e102_eg49_p15_7a9b4d6).
 
@@ -400,7 +400,7 @@ Thus we will be using the following annotation database in the enrichment:
 
 All electronic GO annotations were discarded and the annotation term size was restricted to 200 genes.
 
-The tool uses Fisher Exact test. We used 0.05 threshold for significanceand Benjamni-Hochberg correction for multiple hypothesis testing.
+The tool uses Fisher Exact test. We used 0.05 threshold for significance and Benjamni-Hochberg correction for multiple hypothesis testing.
 
 This approach yielded the following results (see details on A2):
 
@@ -495,11 +495,13 @@ schema) as conveyed by their parameter Human_HGNC_ID_MSigDB.v7.4
 
 The minimum geneset size was set to 15 and the maximum to 200. We used gene
 set permutation (1000 permutations) as the statistic method to assess 
-significance. For reproducibility, the randomness generation seeds used were 1617549485725 1617549485725 for the Non-remitters Vs controls and Non-remitters Vs Remitters, respectively.
+significance. For reproducibility, the randomness generation seeds used were 
+1617549485725 1617549485725 for the Non-remitters Vs controls and Non-remitters
+Vs Remitters, respectively.
 
 For the non-remitters Vs controls we have obtained the following results
 also available at NRxH_gsea_report_up.tsv and NRxH_gsea_report_down.tsv with
-output files at RNxC_analysis.GseaPreranked_seed1617549485725 folder):
+output files at RNxH_analysis.GseaPreranked_seed1617549485725 folder):
 
 1616 / 2917 gene sets are upregulated 
 399 gene sets are significantly enriched at nominal pvalue < 1%
@@ -513,13 +515,14 @@ Top 15 up regulated genes at Remitters Vs Controls:
 
 ![Figure 1: upregulated GSEA results for NRxH](./figures/NRxH_top15_GSEA_up.png)
 
-Interesting we many sets related to glutamatergic activity, such as the following (see discussion bellow)
+Interesting we many sets related to glutamatergic activity, such as the 
+following (see discussion bellow)
 
 ![Figure 2: Enrichment plot: GOBP Glutamatergic profile of the Running ES Score & Positions of GeneSet Members on the Rank Ordered List](./figures/NRxH_GLUTAMATERGIC.png)
 
 Top 15 down regulated genes at Remitters Vs Controls:
 
-![Figure 3: upregulated GSEA results for NRxH](./figures/NRxH_top15_GSEA_down.png)
+![Figure 3: downregulated GSEA results for NRxH](./figures/NRxH_top15_GSEA_down.png)
 There, we see processes mostly related to the dedifferentiation and neuro-differentiation techniques used, as discussed in A2. Among them, processes related to proteic membrane-targeting as expected due to transcription factors exposure (forebrain neuro differentiation):
 
 ![Figure 4: Enrichment plot: GOBP Glutamatergic profile of the Running ES Score & Positions of GeneSet Members on the Rank Ordered List](./figures/NRxH_MEMBRANE_TARGETING.png)
@@ -557,7 +560,49 @@ GSEA non-thresholded results were comparable in a non-straightforward fasion to 
 
 Interestingly processes that were not highly significant at G:Profiler non-thresholded analysis such as the ones related to glutamate signalling were highly present at the comparision of non-remitters with both controls and remitters (see interpretation) and patways related to endogenous opiates (which were somewhat significant with the G:profiler analysis) where not relevant at GSE analysis. 
 
+# 3. Cytoscape Vizualization of GSEA
 
+Here we will use Cytoscape [@Cytoscape] v.3.8.2 with the Enrichment map application v.3.3.1, its supporting pipeline collection v.1.1.0 (March, 2021). In a second step, we also used the supporting extension AutoAnnotate v.1.3.3, clusterMaker2 v1.3.1 and WordCloud v3.1.1.
+
+For the creation of the network, we used the GSEA results (see details in section 2), also available at RNxH_analysis.GseaPreranked_seed1617549485725 and RNxR_analysis.GseaPreranked_seed1617549485725 folders.
+
+The annotation performed 
+
+The following parameters were applied for creatin and annotation:
+
+FDR cutoff: 0.1
+p-value cutoff: 1.0
+NES: All
+No filtering
+Baderlab names parsed
+Data Set Edges Automatic (combining them would have no effect since we are performing separate analysis)
+Edge display cutoff as 0.375 for preliminary view and 0.7 for later presentation
+Metric used for edge display: Jaccard and Overlap combined, 50/50
+Annotation with layout network using
+MLC clustering algorithm by similarity over 16 iterations with weak edge cutoff 
+of 1e-15 and kept residue of 0.001
+WordCloud with Adjacent Words for labeling with 3 maximum words limit
+
+Remitters Vs Controls network (network available at NRxH_network.cif:
+2917 nodes
+2515 edges (0.7 cutoff on similarity)
+
+![Figure 8: Preliminary Macro-organization view of NRxH network](./figures/NRxH_prelim.png)
+
+Non-remitters Vs Remitters (network available at NRxR_network.cif):
+
+
+![Figure 9: Preliminary Macro-organization view of NRxR network](./figures/NRxR_prelim.png)
+
+We decided to annotate incrementally in groups of 5 clusters in order to divide the processing time.
+
+![Figure 10: A central view of annotated NRxH network before manual adjustment](./figures/NRxR_annot.png)
+![Figure 11: Central view of annotated NRxR network after careful manual adjustment](./figures/NRxR_adjusted.png)
+![Figure 12: Theme collapsed summary for NRxR](./figures/summary.png)
+![Figure 13: Theme collapsed summary focused on central hub for NRxR](./figures/NRxR_collapsed_center.png)
+Interestingly (see discussion for details and also section 2), the major themes of Glutamatergic methabolism and Calcineurin interplay continues to be relevant, even at the narrower comparision scale of non-remitters Vs remitters. The later does fit the model presented by the author at the main paper while the former expands its.
+
+4. Interpretation and results detailing 
 
 
 # 6. References
