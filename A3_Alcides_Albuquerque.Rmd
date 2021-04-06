@@ -600,11 +600,40 @@ We decided to annotate incrementally in groups of 5 clusters in order to divide 
 ![Figure 11: Central view of annotated NRxR network after careful manual adjustment](./figures/NRxR_adjusted.png)
 ![Figure 12: Theme collapsed summary for NRxR](./figures/summary.png)
 ![Figure 13: Theme collapsed summary focused on central hub for NRxR](./figures/NRxR_collapsed_center.png)
-Interestingly (see discussion for details and also section 2), the major themes of Glutamatergic methabolism and Calcineurin interplay continues to be relevant, even at the narrower comparision scale of non-remitters Vs remitters. The later does fit the model presented by the author at the main paper while the former expands its.
+Interestingly (see discussion for details and also section 2), the major themes of Glutamatergic methabolism and Calcineurin interplay continues to be relevant, even at the narrower comparison scale of non-remitters Vs remitters. The later does fit the model presented by the author at the main paper while the former expands its.
 
-4. Interpretation and results detailing 
+# 4. Pathway investigation and Discussion
+
+Since we have noticed the presence of pathways and themes related to differential glutamatergic activity / calcineurin activity, we initially tried to load our ranked data into Wikipathways' <AMPA receptor and synaptic plasticity> curated network. However, connections at the imported network and its pathway version were scarce.
+
+We then highlighted the NDMA receptor-related cluster (a central hub in our network) through the GO annotation previously attached and used GeneMania[@GeneMania].
+
+![Figure 12: NDMA-related central hub for NRxR](./figures/NDMA_central_gub.png)
+
+![Figure 13: Relationship type and extent of NDMA-associated genes on NRxR dataset through GeneMania](./figures/gene_mania_relation.png)
+Then we imported our ranked data to match the gene names on this NDMA-related network:
+
+![Figure 13: Level of regulation in NDMA-associated genes on NRxR dataset loaded to GeneMania, green(-), pink(+): +](./figures/gene_mania_upregulation.png)
+And the results strikingly support the authors finding of hyperactivity on SSRI-resistant VS SSRI-responsive comparison.
+
+Now we visualize the same NMDA-related set by the STRINGS extension[@strings]. We notice the interesting central position of DLG3, which encodes for a guanylate kinase with possible role in clustering glutamate receptor at excitatory synapsis and potentially in mental disorders[frank2011clustered].
+
+![Figure 13: Central network role of DKG3 (in yellow) in NDMA-associated sets vizualized through STRINGS: +](./figures/strings.png)
+
+Many of the results seen since ORA and now with the network analysis can unfortunately be related to side effects
+of the dedifferentiation and specialization techniques used by the authors (iPSCs)[@george2005retinal] [@brennand]. Also, the network approach has failed to demonstrate a significant presence of endogenous opiate deregulation that were considered possible during our previous over-representation analysis.
+
+However the new network representation of our ranked analysis has confirmed a central hub of differentially expressed gene sets that share the following common themes: glutamatergic activity, calcium transport and localization and calcineurin activity.
+
+The main purpose of the main paper authors was to contribute to the understanding of why certain patients are resistant to SSRI therapy[@vadodaria2019serotonin]. In that sense, it is possibly relevant that those themes (and opposite to what happened to our endorphin considerations) are present at both the comparison of therapy-resistant patients VS controls and therapy resistant patients VS therapy responsive patients.
 
 
-# 6. References
+The results corroborate the author's hypothesis that SSRI resistant patients present a pattern 5-HT-induced hyperactivity
+due to up regulated 5-HT2A and 5-HT7 receptors (proxied by deregulation of cellular calcium localization mechanisms). The integrated network/pathway analysis could have also added that such hyperactivity maybe related also to glutamatergic signalling or even calcineurin activity downstream of AMPA receptors. The role of both (calcineurin and NMDA/AMPA, less so for kainate receptors) in long term potential depression have been widely studied[@calcineurin] among many others. Glutamate metabolism in resistant and non-resistant Major depression patients have also been studied widely [@abdallah2014glutamate] but no definitive role or effective first-line pharmacological approach has been developed on those lines (The closest one, lamotrigine, having adjuvant role in clinical context). 
+
+That leads us to some considerations regarding the limits of any conclusions that could be drawn. First, it seems possible the the differential effects on glutamate/calcineurin signalling represent more noise than signal, in a context of non-specific widespread over-activity of cells exposed to SSRI in vitro. Secondly, we cannot rule out the iPSCs-formation techniques potential to be the primary drive of glutamate/calcineurin signalling changes. 
+
+
+# 5. References
 
 
