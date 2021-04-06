@@ -616,9 +616,9 @@ Then we imported our ranked data to match the gene names on this NDMA-related ne
 ![Figure 13: Level of regulation in NDMA-associated genes on NRxR dataset loaded to GeneMania, green(-), pink(+): +](./figures/gene_mania_upregulation.png)
 And the results strikingly support the authors finding of hyperactivity on SSRI-resistant VS SSRI-responsive comparison.
 
-Now we visualize the same NMDA-related set by the STRINGS extension[@strings]. We notice the interesting central position of DLG3, which encodes for a guanylate kinase with possible role in clustering glutamate receptor at excitatory synapsis and potentially in mental disorders[frank2011clustered].
+Now we visualize the same NMDA-related set protein-protein interactions through the STRINGS extension[@strings]. We notice the interesting central position of DLG3, which encodes for a guanylate kinase with possible role in clustering glutamate receptor at excitatory synapsis and potentially in mental disorders[frank2011clustered].
 
-![Figure 13: Central network role of DKG3 (in yellow) in NDMA-associated sets vizualized through STRINGS: +](./figures/strings.png)
+![Figure 13: Central network role of DKG3 (in yellow) in protein-protein interactions with NDMA-associated sets vizualized through STRINGS](./figures/strings.png)
 
 Many of the results seen since ORA and now with the network analysis can unfortunately be related to side effects
 of the dedifferentiation and specialization techniques used by the authors (iPSCs)[@george2005retinal] [@brennand]. Also, the network approach has failed to demonstrate a significant presence of endogenous opiate deregulation that were considered possible during our previous over-representation analysis.
