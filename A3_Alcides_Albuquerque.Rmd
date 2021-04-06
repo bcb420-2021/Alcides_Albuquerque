@@ -22,7 +22,7 @@ GEO data set: [GEO accession GSE125664](https://www.ncbi.nlm.nih.gov/geo/query/a
 
 # 1. Introduction: A1 and A2 summary
 
-## 1.1 Selection of an expression data set and software tools
+### 1.1 Selection of an expression data set and software tools
 
 Previously, in A1, we have found an appropriate study (in terms of RNA expression analysis and clinical relevance) by searching RNAseq data set available at [Gene Expression Omnibus repository - GEO] (www.ncbi.nlm.nih.gov/geo)[@GEO].
 
@@ -94,7 +94,7 @@ It also provided the raw mRNA counts for analysis. The controls are represented 
 The sample size in this study is 9, with adequate control and 2 testing groups (MDD with an without SSRI-based treatment resistance). 
 
 
-## 1.2. Downloading the data, cleaning and compute summary statistics
+### 1.2. Downloading the data, cleaning and compute summary statistics
 
 The data for this study is contained in one supplemental .csv file called "GSE125664_Vadodaria_MDDNeurons_RawCounts":
 
@@ -163,11 +163,11 @@ SSRI_exp_filtered = SSRI_exp_clean[keep,]
 
 We have kept 12973 gene counts, meaning we had to filter out `r 1-(dim(SSRI_exp_filtered)[1]/dim(SSRI_exp_clean)[1])` of our gene-mapped RNA seq observations
 
-## 1.3. Normalization
+### 1.3. Normalization
 
-We used TMM (Trimmed Mean of M-values) normalization. For most samples the distribution curve pre and post-normalization is very similar, however there is a noticiable change towards the mean (a bit higher than 5) for the second control (H_neuron_2) and, interestingly, for 2 of the 3 nonremitter patients.
+We used TMM (Trimmed Mean of M-values) normalization. For most samples the distribution curve pre and post-normalization is very similar, however there is a noticeable change towards the mean (a bit higher than 5) for the second control (H_neuron_2) and, interestingly, for 2 of the 3 nonremitter patients.
 
-```{R, fig.width=5, fig.height=5}
+```{R, fig.width=5, fig.height=5, echo=FALSE}
 
 data2plot <- log2(cpm(SSRI_exp_filtered[,2:10]))
 
@@ -194,7 +194,7 @@ normalized_counts <- cpm(d)
 ```
 
 
-## 1.4. Differential Gene Expression analysis
+### 1.4. Differential Gene Expression analysis
 
 Here, we test for statistically significant expression differences for each of the mapped genes, between our 3 groups (we will call it status) of interest in our designed model: healthy patients exposed to SSRI (control), non-remitters MDD exposed to SSRI (test 2) and remitter MDD exposed to SSRI (test 2). 
 
@@ -202,10 +202,7 @@ An expansion of this model includes 2 groups (we will call this attribute "affec
 
 We used 2 distinct but symmetrical models that will assess remitters MDD patient's cells VS Healthy control cells and remitters MDD patient's cells VS non-remitters MDD patient's cells separately.
 
-samples <- data.frame(status = c("H", "H", "H", "NR", "NR","NR", "R", "R", "R"),
-                      affected = c("ND", "ND", "ND", "D", "D","D", "D", "D", "D"))
-
-```{r}
+```{r, echo=FALSE}
 
 # Creating model for non-remitters VS control assessment
 samples_NRxH <- data.frame(status = c("H", "H", "H", "NR", "NR","NR"))
@@ -220,7 +217,7 @@ model_design_NRxR <- model.matrix(~samples_NRxR$status)
 
 Now we apply the each model separately to the appropriate data set:
 
-```{r}
+```{r, echo=FALSE}
 d_NRxH = DGEList(counts=normalized_counts[,1:6], group=samples_NRxH$statusNR)
 d_NRxR = DGEList(counts=normalized_counts[,4:9], group=samples_NRxR$statusNR)
 
@@ -246,7 +243,7 @@ qlf.pos_vs_neg_NRxR <- glmQLFTest(fit_NRxR, coef='samples_NRxR$statusR')
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 # Results, now inspired by lecture 7
 qlf_output_hits_RNxH <- topTags(qlf.pos_vs_neg_NRxH, sort.by = "PValue", n = nrow(SSRI_exp))
 qlf_output_hits_RNxR <- topTags(qlf.pos_vs_neg_NRxR, sort.by = "PValue", n = nrow(SSRI_exp))
@@ -263,7 +260,7 @@ length(which(qlf_output_hits_RNxR$table$FDR < 0.05))
 ```
 
 
-## 1.5. Thresholded over-representation analysis
+### 1.5. Thresholded over-representation analysis
 
 
 First we compared non-remitters and controls:
@@ -288,7 +285,7 @@ length(which(qlf_output_hits_RNxR$table$PValue < 0.05
 ```
 We have 379 genes significantly up-regulated in non-remitters comparing to controls, and 353 down-regulated, which is compatible with finding on paper, where the delta of expression among MDD patients is decreased when compared to remitters and controls.
 
-## 1.6 Creating thresholded list
+### 1.6 Creating thresholded list
 
 Here we will create a thresholded list, initially with the remitters dataset compared
 to the non remitters dataset, in which our rank will consist in the following product:
@@ -298,7 +295,7 @@ to the non remitters dataset, in which our rank will consist in the following pr
 2) the up-regulated significantly differentially expressed genes
 3) the down-regulated significantly differentially expressed genes
 
-```{r}
+```{r, echo=FALSE}
 # Inspired by lecture 7
 
 # Attached name to gene results matrix
@@ -325,7 +322,7 @@ downregulated_genes_RNxR <- qlf_output_hits_withgn_RNxR$gname[which(qlf_output_h
 ```
 
 Now doing the same to compare non-remitters to remitters:
-```{r}
+```{r, echo=FALSE}
 # Inspired by lecture 7
 
 # Attached name to gene results matrix
@@ -351,7 +348,7 @@ downregulated_genes_RNxH <- qlf_output_hits_withgn_RNxH$gname[which(qlf_output_h
 
 
 Save tables for later use if docker port connection is properly configured:
-```{r}
+```{r, echo=FALSE}
 dir.create('output', showWarnings=FALSE)
 
 # Saving up-regulated genes NRxR
@@ -387,7 +384,7 @@ write.table(x=data.frame(genename=qlf_output_hits_withgn_RNxH$gname,
                          row.names = FALSE,col.names = FALSE,quote = FALSE)
 ```
 
-## 1.7 Thresholded Gene List Function Enrichment Analysis
+### 1.7 Thresholded Gene List Function Enrichment Analysis
 
 We then used G:Profiler web server[@gprofiler]to perform the above gene list enrichment analysis (version e102_eg49_p15_7a9b4d6).
 
@@ -400,86 +397,14 @@ Thus we will be using the following annotation database in the enrichment:
 
 All electronic GO annotations were discarded and the annotation term size was restricted to 200 genes.
 
-The tool uses Fisher Exact test. We used 0.05 threshold for significance and Benjamni-Hochberg correction for multiple hypothesis testing.
+The tool uses Fisher Exact test. We used 0.05 threshold for significance and Benjamin-Hochberg correction for multiple hypothesis testing.
 
-This approach yielded the following results (see details on A2):
-
-ORA with Wiki Pathway results for non-remitters VS controls in up-regulated genes:
-
-* 31 results over the 0.05 threshold and terms of maximum size of 200.
-
-ORA with Reactome results for non-remitters VS controls in up-regulated genes:
-
-* 89 results over the 0.05 threshold with terms of maximum size of 200.
-
-ORA with GO results for non-remitters VS controls in up-regulated genes:
-
-* 467 results over the 0.05 threshold and terms of maximum size of 200.
-
-ORA with Wiki Pathway results for non-remitters VS controls in down-regulated genes:
-
-* 26 results over the 0.05 threshold and terms of maximum size of 200.
-
-ORA with Reactome results for non-remitters VS controls in down-regulated genes:
-
-* 139 results over the 0.05 threshold with terms of maximum size of 200.
-
-ORA with GO results for non-remitters VS controls in down-regulated genes:
-
-* 89 results over the 0.05 threshold and terms of maximum size of 200.
-
-ORA with Wiki Pathway results for non-remitters VS controls in all genes:
-
-* 175 results over the 0.05 threshold and terms of maximum size of 200.
-
-ORA with Reactome results for non-remitters VS controls in all genes:
-
-* 601 results over the 0.05 threshold with terms of maximum size of 200.
-
-ORA with GO results for non-remitters VS controls in all genes:
-
-* 962 results over the 0.05 threshold and terms of maximum size of 200.
-
-ORA with Wiki Pathway results for non-remitters VS remitters in up-regulated genes:
-
-* 12 results over the 0.05 threshold and terms of maximum size of 200.
-
-ORA with Reactome results for non-remitters VS remitters in up-regulated genes:
-
-* 28 results over the 0.05 threshold with terms of maximum size of 200.
-
-OORA with GO results for non-remitters VS remitters in up-regulated genes:
-
-* 110 results over the 0.05 threshold and terms of maximum size of 200.
-
-ORA with Wiki Pathway results for non-remitters VS remitters in down-regulated genes:
-
-* 3 results over the 0.05 threshold and terms of maximum size of 200.
-
-ORA with Reactome results for non-remitters VS remitters in down-regulated genes:
-
-* no result passed the 0.05 threshold with terms of maximum size of 200.
-
-ORA with GO results for non-remitters VS remitters in down-regulated genes:
-
-* 9 results over the 0.05 threshold and terms of maximum size of 200.
-
-ORA with Wiki Pathway results for non-remitters VS remitters in all genes:
-
-* 123 results over the 0.05 threshold and terms of maximum size of 200.
-
-ORA with Reactome results for non-remitters VS remitters in all genes:
-
-* 626 results over the 0.05 threshold with terms of maximum size of 200.
-
-ORA with GO results for non-remitters VS remitters in all genes:
-
-* 981 results over the 0.05 threshold and terms of maximum size of 200.
+Please see details on the results at A2.
 
 
 # 2. Non-thresholded Gene set Enrichment Analysis
 
-We will now useuse the ranked gene list for the Non-remitters Vs remitters and 
+We will now use the ranked gene list for the Non-remitters Vs remitters and 
 Non-remitters Vs controls built on section 1.6 to perform the non-thresholded
 gene set enrichment analysis which correspond to RNxR_ranked_genelist.txt and 
 RNxH_ranked_genelist.txt (as .rnk versions).
@@ -513,19 +438,22 @@ output files at RNxH_analysis.GseaPreranked_seed1617549485725 folder):
 
 Top 15 up regulated genes at Remitters Vs Controls:
 
-![Figure 1: upregulated GSEA results for NRxH](./figures/NRxH_top15_GSEA_up.png)
+![Figure 1: upregulated GSEA results for NRxH](./figures/NRxH_top15_GSEA_up.png){width=50%}
 
 Interesting we many sets related to glutamatergic activity, such as the 
 following (see discussion bellow)
 
-![Figure 2: Enrichment plot: GOBP Glutamatergic profile of the Running ES Score & Positions of GeneSet Members on the Rank Ordered List](./figures/NRxH_GLUTAMATERGIC.png)
+![Figure 2: Enrichment plot: GOBP Glutamatergic profile of the Running ES Score & Positions of GeneSet Members on the Rank Ordered List](./figures/NRxH_GLUTAMATERGIC.png){width=30%}
+
 
 Top 15 down regulated genes at Remitters Vs Controls:
 
-![Figure 3: downregulated GSEA results for NRxH](./figures/NRxH_top15_GSEA_down.png)
-There, we see processes mostly related to the dedifferentiation and neuro-differentiation techniques used, as discussed in A2. Among them, processes related to proteic membrane-targeting as expected due to transcription factors exposure (forebrain neuro differentiation):
+![Figure 3: downregulated GSEA results for NRxH](./figures/NRxH_top15_GSEA_down.png){width=60%}
 
-![Figure 4: Enrichment plot: GOBP Glutamatergic profile of the Running ES Score & Positions of GeneSet Members on the Rank Ordered List](./figures/NRxH_MEMBRANE_TARGETING.png)
+There, we see processes mostly related to the dedifferentiation and neuro-differentiation techniques used, as discussed in A2. Among them, processes related to protein membrane-targeting as expected due to transcription factors exposure (forebrain neuro differentiation):
+
+
+![Figure 4: Enrichment plot: GOBP Glutamatergic profile of the Running ES Score & Positions of GeneSet Members on the Rank Ordered List](./figures/NRxH_MEMBRANE_TARGETING.png){width=30%}
 
 
 Now we obtain the results for the analysis of the non-remitters Vs remitters profile using the same parameters (results also available at NRxR_gsea_report_up.tsv and NRxR_gsea_report_down.tsv with
@@ -535,30 +463,32 @@ output files at RNxR_analysis.GseaPreranked_seed1617549485725 folder):
 38 gene sets are significantly enriched at nominal pvalue < 1%
 104 gene sets are significantly enriched at nominal pvalue < 5%
 
-1688 / 2917 gene sets are upregulated in phenotype na_neg
+1688 / 2917 gene sets are downregulated  
 119 gene sets are significantly enriched at nominal pvalue < 1%
 325 gene sets are significantly enriched at nominal pvalue < 5%
 
-Top 15 up regulated genes at Non-remitters Vs remitters:
+Top 15 upregulated genes at Non-remitters Vs remitters:
 
-![Figure 5: upregulated GSEA results for NRxR](./figures/NRxR_top15_GSEA_up.png)
+![Figure 5: upregulated GSEA results for NRxR](./figures/NRxR_top15_GSEA_up.png){width=60%}
 
 Here we notice an over-representation of eye-development gene sets (cilia and retina development), also present at lower ranks on the up regulated results. As discussed in A2, this is probably an artifact resulting from the dedifferentiation technique iPSCs which was later coupled with SSRI exposure. 
 
-![Figure 6: Enrichment plot: GOBP Protein localization to Cillium Profile of the Running ES Score & Positions of GeneSet Members on the Rank Ordered List List](./figures/NRxR_CILIAR.png)
+![Figure 6: Enrichment plot: GOBP Protein localization to Cillium Profile of the Running ES Score & Positions of GeneSet Members on the Rank Ordered List List](./figures/NRxR_CILIAR.png){width=30%}
+
 Top 15 down regulated genes for NRxR analysis:
 
-![Figure 6: downregulated GSEA results for NRxR](./figures/NRxR_top15_GSEA_down.png)
-Again, we see the most significant associations probably related to Induced pluripotent stem cells dedifferentiation technique, which was coupled with exposeure to neuron differentiation tecnique in the study, thus, as discussed in A2, probably a technique artifact.
+![Figure 7: downregulated GSEA results for NRxR](./figures/NRxR_top15_GSEA_down.png){width=60%}
 
-The results relating to cation transport regulation, however, were still relevant, even at the comparision of Non-remitters Vs remitters:
+Again, we see the most significant associations probably related to Induced pluripotent stem cells dedifferentiation technique, which was coupled with exposure to neuron differentiation technique in the study, thus, as discussed in A2, probably a technique artifact.
 
-![Figure 7: Enrichment plot GOBP Regulation of Cation Channel Profile of the Running ES Score & Positions of GeneSet Members on the Rank Ordered List](./figures/NRxR_CATION.png)
+The results relating to cation transport regulation, however, were still relevant, even at the comparison of Non-remitters Vs remitters:
+
+![Figure 8: Enrichment plot GOBP Regulation of Cation Channel Profile of the Running ES Score & Positions of GeneSet Members on the Rank Ordered List](./figures/NRxR_CATION.png){width=30%}
 
 
-GSEA non-thresholded results were comparable in a non-straightforward fasion to g:profiler thresholded results. Many gene processes that were highly significant the GP-BP output of G:profiler were naturally present at the GSEA output, especially those related to cation transport and synaptic dynamics. However that comparison is not direct since GSEA uses the whole list of genes. Another reason why a direct comparison would be flawed is the fact that the most significant results at G:profiler were those related to more restricted but highly curated annotations, while in GSEA the wider annotations from GO-BP seemed more useful due to it negative power (more gene sets would potentially not be present in our expression dataset thus resulting in more robust results).
+GSEA non-thresholded results were comparable in a non-straightforward fashion to g:profiler thresholded results. Many gene processes that were highly significant the GP-BP output of G:profiler were naturally present at the GSEA output, especially those related to cation transport and synaptic dynamics. However that comparison is not direct since GSEA uses the whole list of genes. Another reason why a direct comparison would be flawed is the fact that the most significant results at G:profiler were those related to more restricted but highly curated annotations, while in GSEA the wider annotations from GO-BP seemed more useful due to it negative power (more gene sets would potentially not be present in our expression dataset thus resulting in more robust results).
 
-Interestingly processes that were not highly significant at G:Profiler non-thresholded analysis such as the ones related to glutamate signalling were highly present at the comparision of non-remitters with both controls and remitters (see interpretation) and patways related to endogenous opiates (which were somewhat significant with the G:profiler analysis) where not relevant at GSE analysis. 
+Interestingly processes that were not highly significant at G:Profiler non-thresholded analysis such as the ones related to glutamate signalling were highly present at the comparison of non-remitters with both controls and remitters (see interpretation) and pathways related to endogenous opiates (which were somewhat significant with the G:profiler analysis) where not relevant at GSE analysis. 
 
 # 3. Cytoscape Vizualization of GSEA
 
@@ -566,9 +496,7 @@ Here we will use Cytoscape [@Cytoscape] v.3.8.2 with the Enrichment map applicat
 
 For the creation of the network, we used the GSEA results (see details in section 2), also available at RNxH_analysis.GseaPreranked_seed1617549485725 and RNxR_analysis.GseaPreranked_seed1617549485725 folders.
 
-The annotation performed 
-
-The following parameters were applied for creatin and annotation:
+The following parameters were applied for creating and annotation:
 
 FDR cutoff: 0.1
 p-value cutoff: 1.0
@@ -583,42 +511,61 @@ MLC clustering algorithm by similarity over 16 iterations with weak edge cutoff
 of 1e-15 and kept residue of 0.001
 WordCloud with Adjacent Words for labeling with 3 maximum words limit
 
-Remitters Vs Controls network (network available at NRxH_network.cif:
-2917 nodes
-2515 edges (0.7 cutoff on similarity)
+Remitters Vs Controls network (network available at NRxH_network.cif) contained 2917 nodes and 2515 edges (0.7 cutoff on similarity), as seen bellow.
 
-![Figure 8: Preliminary Macro-organization view of NRxH network](./figures/NRxH_prelim.png)
+![Figure 9: Preliminary Macro-organization view of NRxH network](./figures/NRxH_prelim.png){width=30%}
 
-Non-remitters Vs Remitters (network available at NRxR_network.cif):
+For comparison, notice the correspondent network for the Non-remitters Vs Remitters comparison, with network also available at NRxR_network.cif.
 
 
-![Figure 9: Preliminary Macro-organization view of NRxR network](./figures/NRxR_prelim.png)
+![Figure 10: Preliminary Macro-organization view of NRxR network](./figures/NRxR_prelim.png){width=30%}
 
-We decided to annotate incrementally in groups of 5 clusters in order to divide the processing time.
+Without manual curation, relevant aspects of the network are difficult to distinguish, as noticed bellow.
 
-![Figure 10: A central view of annotated NRxH network before manual adjustment](./figures/NRxR_annot.png)
-![Figure 11: Central view of annotated NRxR network after careful manual adjustment](./figures/NRxR_adjusted.png)
-![Figure 12: Theme collapsed summary for NRxR](./figures/summary.png)
-![Figure 13: Theme collapsed summary focused on central hub for NRxR](./figures/NRxR_collapsed_center.png)
-Interestingly (see discussion for details and also section 2), the major themes of Glutamatergic methabolism and Calcineurin interplay continues to be relevant, even at the narrower comparison scale of non-remitters Vs remitters. The later does fit the model presented by the author at the main paper while the former expands its.
+![Figure 11: A central view of annotated NRxH network before manual adjustment](./figures/NRxR_annot.png){width=25%}
+
+
+After manual manipulation, while still maintaining the nodes topology and relationships:
+
+![Figure 12: Central view of annotated NRxR network after careful manual adjustment](./figures/NRxR_adjusted.png){width=50%}
+
+The we proceed to collapse the network into main themes. 
+Again, without manual curation, even the thematic network is of difficult interpretation.
+
+![Figure 13: Theme collapsed summary for NRxR](./figures/summary.png){width=70%}
+
+
+Again, a careful manual focus and manipulation to focus on relevant sets (those potentially not related o iPSCs technique artifacts):
+
+
+![Figure 14: Theme collapsed summary focused on central hub for NRxR](./figures/NRxR_collapsed_center.png){width=50%}
+
+
+Interestingly (see discussion for details and also section 2), the major themes of Glutamatergic metabolism and Calcineurin interplay continues to be relevant, even at the narrower comparison scale of non-remitters Vs remitters. The later does fit the model presented by the author at the main paper while the former expands its.
 
 # 4. Pathway investigation and Discussion
 
 Since we have noticed the presence of pathways and themes related to differential glutamatergic activity / calcineurin activity, we initially tried to load our ranked data into Wikipathways' <AMPA receptor and synaptic plasticity> curated network. However, connections at the imported network and its pathway version were scarce.
 
+![Figure 15: NDMA-related central hub for NRxR](./figures/NDMA_central_gub.png){width=33%}
+
 We then highlighted the NDMA receptor-related cluster (a central hub in our network) through the GO annotation previously attached and used GeneMania[@GeneMania].
 
-![Figure 12: NDMA-related central hub for NRxR](./figures/NDMA_central_gub.png)
 
-![Figure 13: Relationship type and extent of NDMA-associated genes on NRxR dataset through GeneMania](./figures/gene_mania_relation.png)
-Then we imported our ranked data to match the gene names on this NDMA-related network:
+![Figure 16: Relationship type and extent of NDMA-associated genes on NRxR dataset through GeneMania](./figures/gene_mania_relation.png){width=50%}
 
-![Figure 13: Level of regulation in NDMA-associated genes on NRxR dataset loaded to GeneMania, green(-), pink(+): +](./figures/gene_mania_upregulation.png)
-And the results strikingly support the authors finding of hyperactivity on SSRI-resistant VS SSRI-responsive comparison.
+
+Then we imported our ranked data to match the gene names on this NDMA-related network.
+
+
+![Figure 17: Level of regulation in NDMA-associated genes on NRxR dataset loaded to GeneMania, green(-), pink(+)](./figures/gene_mania_upregulation.png){width=50%}
+
+
+And the results strikingly support a glutamatergic (general) hyperactivity on SSRI-resistant VS SSRI-responsive comparison.
 
 Now we visualize the same NMDA-related set protein-protein interactions through the STRINGS extension[@strings]. We notice the interesting central position of DLG3, which encodes for a guanylate kinase with possible role in clustering glutamate receptor at excitatory synapsis and potentially in mental disorders[frank2011clustered].
 
-![Figure 13: Central network role of DKG3 (in yellow) in protein-protein interactions with NDMA-associated sets vizualized through STRINGS](./figures/strings.png)
+![Figure 18: Central network role of DKG3 (in yellow) in protein-protein interactions with NDMA-associated sets vizualized through STRINGS](./figures/strings.png){width=50%}
 
 Many of the results seen since ORA and now with the network analysis can unfortunately be related to side effects
 of the dedifferentiation and specialization techniques used by the authors (iPSCs)[@george2005retinal] [@brennand]. Also, the network approach has failed to demonstrate a significant presence of endogenous opiate deregulation that were considered possible during our previous over-representation analysis.
